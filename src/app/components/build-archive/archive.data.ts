@@ -1,0 +1,388 @@
+import type { BuildArchiveModule } from "./archive.types";
+
+export const BUILD_ARCHIVE_MODULES: BuildArchiveModule[] = [
+  {
+    id: "capability-engine",
+    index: "01",
+    title: "Capability Engine",
+    status: "deployed",
+    year: "2026",
+    type: "interactive system section",
+    stack: ["React", "TypeScript", "Tailwind", "Motion"],
+    summary:
+      "A terminal-like capability shell that turns frontend strengths into an explorable system.",
+    description:
+      "Built as a narrative section where modules activate, panel state responds, and the portfolio behaves like a live interface instead of a static showcase.",
+    metrics: [
+      {
+        id: "capability-count",
+        label: "subsystems",
+        value: "05",
+        description: "addressable capability modules wired into one shell",
+      },
+      {
+        id: "interactive-zones",
+        label: "interactive zones",
+        value: "11",
+        description: "linked controls, rails, demos, and shell surfaces",
+      },
+      {
+        id: "response-layers",
+        label: "response layers",
+        value: "03",
+        description: "terminal, panel, and ambient system response",
+      },
+    ],
+    logs: [
+      {
+        id: "capability-shell-online",
+        timestamp: "2026.03",
+        title: "shell online",
+        detail: "terminal routing and panel synchronization locked into one section model",
+        level: "success",
+      },
+      {
+        id: "capability-topology",
+        timestamp: "2026.03",
+        title: "topology staged",
+        detail: "subsystem language defined for future GSAP timeline orchestration",
+        level: "info",
+      },
+      {
+        id: "capability-followup",
+        timestamp: "next",
+        title: "advanced motion deferred",
+        detail: "prepared for scroll timelines without hard-coding animation behavior",
+        level: "warning",
+      },
+    ],
+    accent: {
+      line: "rgba(125,211,252,0.9)",
+      glow: "rgba(14,165,233,0.22)",
+      surface: "rgba(56,189,248,0.1)",
+      text: "rgba(186,230,253,0.96)",
+      muted: "rgba(191,219,254,0.46)",
+    },
+    visualType: "engine",
+  },
+  {
+    id: "motion-interface-lab",
+    index: "02",
+    title: "Motion Interface Lab",
+    status: "archived",
+    year: "2025",
+    type: "interaction experiment",
+    stack: ["React", "Motion", "GSAP-ready", "Prototype tooling"],
+    summary:
+      "A sandbox for studying how interface motion can carry hierarchy before copy has to.",
+    description:
+      "The lab explored timing, sequencing, and layered response patterns for premium UI systems. It stays archived as a reference surface for future product work.",
+    metrics: [
+      {
+        id: "motion-cases",
+        label: "test cases",
+        value: "18",
+        description: "micro-interaction and section-level motion studies",
+      },
+      {
+        id: "timing-presets",
+        label: "timing presets",
+        value: "07",
+        description: "repeatable motion profiles for narrative pacing",
+      },
+      {
+        id: "archive-state",
+        label: "archive state",
+        value: "read-only",
+        description: "kept as reference material, not active production work",
+      },
+    ],
+    logs: [
+      {
+        id: "motion-study-01",
+        timestamp: "2025.11",
+        title: "timing study completed",
+        detail: "sequenced entrance patterns documented for reuse",
+        level: "success",
+      },
+      {
+        id: "motion-study-02",
+        timestamp: "2025.12",
+        title: "archive frozen",
+        detail: "interaction sandbox preserved as a design-engineering reference",
+        level: "info",
+      },
+      {
+        id: "motion-study-03",
+        timestamp: "hold",
+        title: "reactivation available",
+        detail: "module can be reopened when a new client brief demands it",
+        level: "warning",
+      },
+    ],
+    accent: {
+      line: "rgba(103,232,249,0.9)",
+      glow: "rgba(8,145,178,0.2)",
+      surface: "rgba(6,182,212,0.1)",
+      text: "rgba(165,243,252,0.96)",
+      muted: "rgba(186,230,253,0.44)",
+    },
+    visualType: "motion",
+  },
+  {
+    id: "design-token-core",
+    index: "03",
+    title: "Design Token Core",
+    status: "deployed",
+    year: "2025",
+    type: "design infrastructure",
+    stack: ["TypeScript", "Tokens", "Tailwind", "Component system"],
+    summary:
+      "A token layer for keeping spacing, color, motion, and state semantics aligned across products.",
+    description:
+      "The goal was a system foundation that stayed legible for designers and developers at the same time, with enough structure to scale across multiple surfaces.",
+    metrics: [
+      {
+        id: "token-groups",
+        label: "token groups",
+        value: "12",
+        description: "core semantic sets covering layout, color, and interaction",
+      },
+      {
+        id: "consumers",
+        label: "consumers",
+        value: "06",
+        description: "shared components and product surfaces using the same source",
+      },
+      {
+        id: "modes",
+        label: "theme modes",
+        value: "03",
+        description: "base, contrast, and presentation-ready variants",
+      },
+    ],
+    logs: [
+      {
+        id: "token-layer-init",
+        timestamp: "2025.08",
+        title: "semantic layer defined",
+        detail: "raw values translated into reusable intent-based tokens",
+        level: "success",
+      },
+      {
+        id: "token-layer-link",
+        timestamp: "2025.09",
+        title: "component adoption started",
+        detail: "core UI pieces migrated onto the token map",
+        level: "info",
+      },
+      {
+        id: "token-layer-watch",
+        timestamp: "active",
+        title: "governance maintained",
+        detail: "new tokens only added when they clarify the system instead of bloating it",
+        level: "warning",
+      },
+    ],
+    accent: {
+      line: "rgba(147,197,253,0.9)",
+      glow: "rgba(37,99,235,0.22)",
+      surface: "rgba(59,130,246,0.1)",
+      text: "rgba(219,234,254,0.96)",
+      muted: "rgba(191,219,254,0.46)",
+    },
+    visualType: "tokens",
+  },
+  {
+    id: "commerce-system-prototype",
+    index: "04",
+    title: "Commerce System Prototype",
+    status: "prototype",
+    year: "2025",
+    type: "conversion architecture",
+    stack: ["Next.js", "React", "Stripe", "Content modeling"],
+    summary:
+      "A commerce system prototype tuned around conversion confidence, story-led navigation, and resilient checkout flow.",
+    description:
+      "This module was designed as a staging ground for premium product storytelling, checkout trust, and a frontend architecture that could scale into a larger retail platform.",
+    metrics: [
+      {
+        id: "critical-flows",
+        label: "critical flows",
+        value: "04",
+        description: "browse, compare, checkout, and account continuity",
+      },
+      {
+        id: "checkout-states",
+        label: "checkout states",
+        value: "09",
+        description: "success, recovery, validation, and edge-case pathways",
+      },
+      {
+        id: "prototype-maturity",
+        label: "maturity",
+        value: "stage-b",
+        description: "architecture stable, visual system still intentionally provisional",
+      },
+    ],
+    logs: [
+      {
+        id: "commerce-proto-01",
+        timestamp: "2025.10",
+        title: "flow map assembled",
+        detail: "product narrative and checkout logic aligned into one prototype shell",
+        level: "success",
+      },
+      {
+        id: "commerce-proto-02",
+        timestamp: "2025.10",
+        title: "payment surface simulated",
+        detail: "transaction states mocked for error handling and trust messaging",
+        level: "info",
+      },
+      {
+        id: "commerce-proto-03",
+        timestamp: "next",
+        title: "production hardening pending",
+        detail: "ready for API integration and performance pass when activated",
+        level: "warning",
+      },
+    ],
+    accent: {
+      line: "rgba(134,239,172,0.88)",
+      glow: "rgba(22,163,74,0.2)",
+      surface: "rgba(34,197,94,0.08)",
+      text: "rgba(220,252,231,0.95)",
+      muted: "rgba(187,247,208,0.42)",
+    },
+    visualType: "commerce",
+  },
+  {
+    id: "neural-interface-lab",
+    index: "05",
+    title: "Neural Interface Lab",
+    status: "research",
+    year: "2026",
+    type: "future interaction research",
+    stack: ["Generative UI", "Spec work", "Signal models", "UI systems"],
+    summary:
+      "A research lane for exploring interfaces that feel adaptive, anticipatory, and systems-native.",
+    description:
+      "Still in research mode, this module collects speculative interface studies around signal density, agent feedback, and visual systems that respond like instruments instead of pages.",
+    metrics: [
+      {
+        id: "research-tracks",
+        label: "research tracks",
+        value: "05",
+        description: "signal feedback, intent routing, memory, agent UI, and adaptive layouts",
+      },
+      {
+        id: "open-questions",
+        label: "open questions",
+        value: "14",
+        description: "areas intentionally left unresolved for deeper exploration",
+      },
+      {
+        id: "research-state",
+        label: "state",
+        value: "investigating",
+        description: "collecting direction rather than locking execution too early",
+      },
+    ],
+    logs: [
+      {
+        id: "neural-lab-01",
+        timestamp: "2026.01",
+        title: "research branch opened",
+        detail: "speculative archive lane created for future system experiments",
+        level: "info",
+      },
+      {
+        id: "neural-lab-02",
+        timestamp: "2026.02",
+        title: "interaction hypotheses added",
+        detail: "agent-like response patterns documented for future prototyping",
+        level: "success",
+      },
+      {
+        id: "neural-lab-03",
+        timestamp: "active",
+        title: "direction intentionally fluid",
+        detail: "module remains open to unknown outcomes rather than polished too early",
+        level: "warning",
+      },
+    ],
+    accent: {
+      line: "rgba(196,181,253,0.88)",
+      glow: "rgba(124,58,237,0.18)",
+      surface: "rgba(139,92,246,0.08)",
+      text: "rgba(237,233,254,0.95)",
+      muted: "rgba(221,214,254,0.4)",
+    },
+    visualType: "neural",
+  },
+  {
+    id: "future-system",
+    index: "06",
+    title: "Future System",
+    status: "locked",
+    year: "TBD",
+    type: "reserved archive slot",
+    stack: ["Undisclosed"],
+    summary:
+      "A reserved slot for the next system that deserves a full archive entry instead of a placeholder card.",
+    description:
+      "This module stays locked on purpose. It signals that the archive is meant to grow as a living frontend system rather than freeze as a finished portfolio page.",
+    metrics: [
+      {
+        id: "access-state",
+        label: "access state",
+        value: "restricted",
+        description: "module shell visible, implementation intentionally withheld",
+      },
+      {
+        id: "readiness",
+        label: "readiness",
+        value: "pending",
+        description: "opens when a new build earns its place in the archive",
+      },
+      {
+        id: "slot-count",
+        label: "reserved slots",
+        value: "01",
+        description: "future-facing capacity kept inside the system map",
+      },
+    ],
+    logs: [
+      {
+        id: "future-slot-01",
+        timestamp: "future",
+        title: "slot reserved",
+        detail: "archive capacity preserved for the next meaningful build",
+        level: "info",
+      },
+      {
+        id: "future-slot-02",
+        timestamp: "future",
+        title: "access denied",
+        detail: "module remains intentionally sealed until the system is real",
+        level: "error",
+      },
+      {
+        id: "future-slot-03",
+        timestamp: "watch",
+        title: "activation pending",
+        detail: "future build will unlock this panel when it is ready to be shown",
+        level: "warning",
+      },
+    ],
+    accent: {
+      line: "rgba(148,163,184,0.72)",
+      glow: "rgba(51,65,85,0.18)",
+      surface: "rgba(71,85,105,0.08)",
+      text: "rgba(226,232,240,0.9)",
+      muted: "rgba(148,163,184,0.38)",
+    },
+    visualType: "locked",
+  },
+];
