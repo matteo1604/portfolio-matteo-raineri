@@ -1033,7 +1033,7 @@ export function Hero() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-wrap items-center gap-6" data-cursor-interactive>
                 {/* CTA — keeps motion.a for whileHover/whileTap (no GSAP conflict) */}
                 <motion.a
                   href="#work"

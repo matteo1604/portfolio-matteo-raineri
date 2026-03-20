@@ -82,31 +82,53 @@ export function CustomCursor() {
     const refreshInterval = setInterval(cacheMagnetics, 2000);
     ScrollTrigger.addEventListener("refresh", cacheMagnetics);
 
+    // ── CTA proximity helper ────────────────────────────────────────────────
+    const CTA_DETECT_RADIUS = 140;
+
+    function findClosestCTA(mx: number, my: number): { dist: number; maxDist: number } | null {
+      let closest: { dist: number; maxDist: number } | null = null;
+      magneticEls.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dist = Math.sqrt((mx - cx) ** 2 + (my - cy) ** 2);
+        if (dist < CTA_DETECT_RADIUS && (!closest || dist < closest.dist)) {
+          closest = { dist, maxDist: CTA_DETECT_RADIUS };
+        }
+      });
+      return closest;
+    }
+
     // ── Mouse tracking ─────────────────────────────────────────────────────
     const handleMouseMove = (e: MouseEvent) => {
       const { clientX: x, clientY: y } = e;
 
-      // Check if entering/leaving an interactive zone
+      // ── Detect interactive zone ───────────────────────────────────────
       const interactiveZone = (e.target as HTMLElement).closest("[data-cursor-interactive]");
-      const wasInZone = inInteractiveZoneRef.current;
-      const isInZone = !!interactiveZone;
+      inInteractiveZoneRef.current = !!interactiveZone;
 
-      if (isInZone !== wasInZone) {
-        inInteractiveZoneRef.current = isInZone;
-        if (isInZone) {
-          gsap.to(dot,  { opacity: 0, duration: 0.2, overwrite: "auto" });
-          gsap.to(ring, { opacity: 0, duration: 0.2, overwrite: "auto" });
-          trailRefs.current.forEach((el) => {
-            if (el) gsap.to(el, { opacity: 0, duration: 0.15, overwrite: "auto" });
-          });
-        } else {
-          gsap.to(dot,  { opacity: 1, duration: 0.15, overwrite: "auto" });
-          gsap.to(ring, { opacity: 1, duration: 0.15, overwrite: "auto" });
-          trailRefs.current.forEach((el, i) => {
-            if (el) gsap.to(el, { opacity: 0.28 - i * 0.042, duration: 0.15, overwrite: "auto" });
-          });
-        }
+      if (interactiveZone) {
+        // Fade out custom cursor
+        gsap.to(dot, { opacity: 0, duration: 0.18, overwrite: "auto" });
+        gsap.to(ring, { opacity: 0, duration: 0.18, overwrite: "auto" });
+        trailRefs.current.forEach((el) => {
+          if (el) gsap.to(el, { opacity: 0, duration: 0.12, overwrite: "auto" });
+        });
+
+        // Still update positions silently (so cursor is correct when leaving zone)
+        gsap.set(dot, { x: x - 4, y: y - 4 });
+        gsap.set(ring, { x: x - 20, y: y - 20 });
+
+        // Skip magnetic pull and CTA proximity inside interactive zones
+        return;
       }
+
+      // ── Restore custom cursor visibility ──────────────────────────────
+      gsap.to(dot, { opacity: 1, duration: 0.12, overwrite: "auto" });
+      gsap.to(ring, { opacity: 1, duration: 0.12, overwrite: "auto" });
+      trailRefs.current.forEach((el, i) => {
+        if (el) gsap.to(el, { opacity: 0.28 - i * 0.042, duration: 0.12, overwrite: "auto" });
+      });
 
       // Dot — tight follow
       gsap.to(dot, {
@@ -139,39 +161,88 @@ export function CustomCursor() {
         });
       });
 
-      // ── Magnetic pull — skip inside interactive zones ─────────────────────
-      if (!isInZone) {
-        magneticEls.forEach((el) => {
-          const rect = el.getBoundingClientRect();
-          const centerY = rect.top + rect.height / 2;
-          if (Math.abs(y - centerY) > 250) {
-            gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "power2.out", overwrite: "auto" });
-            return;
-          }
-          const centerX = rect.left + rect.width / 2;
-          const dx = x - centerX;
-          const dy = y - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const magnetRadius = 120;
+      // ── Magnetic pull ────────────────────────────────────────────────────
+      magneticEls.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        if (Math.abs(y - centerY) > 250) {
+          gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "power2.out", overwrite: "auto" });
+          return;
+        }
+        const centerX = rect.left + rect.width / 2;
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const magnetRadius = 120;
 
-          if (dist < magnetRadius) {
-            const pull = (1 - dist / magnetRadius) * 0.35;
-            gsap.to(el, {
-              x: dx * pull,
-              y: dy * pull,
-              duration: 0.4,
-              ease: "power3.out",
-              overwrite: "auto",
-            });
-          } else {
-            gsap.to(el, {
-              x: 0,
-              y: 0,
-              duration: 0.7,
-              ease: "elastic.out(1, 0.4)",
-              overwrite: "auto",
-            });
-          }
+        if (dist < magnetRadius) {
+          const pull = (1 - dist / magnetRadius) * 0.35;
+          gsap.to(el, {
+            x: dx * pull,
+            y: dy * pull,
+            duration: 0.4,
+            ease: "power3.out",
+            overwrite: "auto",
+          });
+        } else {
+          gsap.to(el, {
+            x: 0,
+            y: 0,
+            duration: 0.7,
+            ease: "elastic.out(1, 0.4)",
+            overwrite: "auto",
+          });
+        }
+      });
+
+      // ── CTA proximity feedback ──────────────────────────────────────────
+      const closestCTA = findClosestCTA(x, y);
+
+      if (closestCTA) {
+        const proximity = 1 - closestCTA.dist / closestCTA.maxDist;
+
+        // Dot grows from 8px to ~19px as you approach
+        const dotScale = 1 + proximity * 1.4;
+        gsap.to(dot, {
+          width: 8 * dotScale,
+          height: 8 * dotScale,
+          x: x - (4 * dotScale),
+          y: y - (4 * dotScale),
+          duration: 0.15,
+          ease: "power2.out",
+          overwrite: "auto",
+        });
+
+        // Dot gets a glow at close range
+        dot.style.boxShadow = proximity > 0.6
+          ? `0 0 ${12 * proximity}px rgba(147,197,253,${(0.3 * proximity).toFixed(2)})`
+          : "none";
+
+        // Ring grows gradually (not snap)
+        gsap.to(ring, {
+          scale: 1 + proximity * 0.8,
+          duration: 0.2,
+          ease: "power2.out",
+          overwrite: "auto",
+        });
+      } else {
+        // Reset to default
+        gsap.to(dot, {
+          width: 8,
+          height: 8,
+          x: x - 4,
+          y: y - 4,
+          duration: 0.2,
+          ease: "power2.out",
+          overwrite: "auto",
+        });
+        dot.style.boxShadow = "none";
+
+        gsap.to(ring, {
+          scale: 1,
+          duration: 0.3,
+          ease: "power2.out",
+          overwrite: "auto",
         });
       }
     };
@@ -199,31 +270,12 @@ export function CustomCursor() {
       );
     };
 
-    // ── Hover state — scale ring on interactive elements ─────────────────
-    const handleMouseOver = (e: MouseEvent) => {
-      if (inInteractiveZoneRef.current) return;
-      const target = e.target as HTMLElement;
-      const isInteractive =
-        target.tagName === "A" ||
-        target.tagName === "BUTTON" ||
-        window.getComputedStyle(target).cursor === "pointer";
-
-      gsap.to(ring, {
-        scale: isInteractive ? 1.6 : 1,
-        duration: 0.3,
-        ease: "power2.out",
-        overwrite: "auto",
-      });
-    };
-
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mouseover", handleMouseOver, { passive: true });
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mousedown", handleMouseDown);
-      window.removeEventListener("mouseover", handleMouseOver);
       ScrollTrigger.removeEventListener("refresh", cacheMagnetics);
       clearInterval(refreshInterval);
 
