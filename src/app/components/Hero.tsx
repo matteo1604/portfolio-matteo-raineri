@@ -10,8 +10,6 @@ import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 // for optimal LCP. The useEffect injection below is a self-contained fallback.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const EXPO_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
 // ── Animated counter ────────────────────────────────────────────────────────
 function useCounter(
   target: number,
@@ -286,8 +284,16 @@ const MATTEO_SCATTER = [
 
 const LETTER_WEIGHTS = [0.6, 1.0, 0.9, 0.9, 1.0, 0.95] as const;
 
+// ── Final opacities for code panels (match original motion/react keyframes) ──
+const PANEL_OPACITIES = {
+  TR: 0.62,
+  RC: 0.48,
+  BL: 0.56,
+  BR: 0.46,
+} as const;
+
 export function Hero() {
-  // ── GSAP refs — scope + per-element targets ─────────────────────────────
+  // ── Refs ──────────────────────────────────────────────────────────────────
   const sectionRef = useRef<HTMLElement>(null);
   const eyebrowRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -301,117 +307,41 @@ export function Hero() {
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const leftOrbRef = useRef<HTMLDivElement>(null);
+  const beamRef = useRef<HTMLDivElement>(null);
   const letterRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const raineriWrapRef = useRef<HTMLSpanElement>(null);
 
-  // ── GSAP cinematic scroll sequence — pin + choreographed disintegration ────
-  useGSAP(
-    () => {
-      const section = sectionRef.current;
-      if (!section) return;
+  // ── State ─────────────────────────────────────────────────────────────────
+  const [entranceComplete, setEntranceComplete] = useState(false);
+  const [raineriRevealed, setRaineriRevealed] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
-      const isMobile = !window.matchMedia("(min-width: 1024px)").matches;
+  // ── Scene parallax motionValues (mouse-driven) ──────────────────────────
+  const titleOffsetX = useMotionValue(0);
+  const titleOffsetY = useMotionValue(0);
+  const beamOffsetX = useMotionValue(0);
+  const beamOffsetY = useMotionValue(0);
+  const ghostOffsetX = useMotionValue(0);
+  const ghostOffsetY = useMotionValue(0);
+  const titleParallaxX = useSpring(titleOffsetX, { damping: 36, stiffness: 110 });
+  const titleParallaxY = useSpring(titleOffsetY, { damping: 36, stiffness: 110 });
+  const beamParallaxX = useSpring(beamOffsetX, { damping: 28, stiffness: 84 });
+  const beamParallaxY = useSpring(beamOffsetY, { damping: 28, stiffness: 84 });
+  const ghostParallaxX = useSpring(ghostOffsetX, { damping: 32, stiffness: 92 });
+  const ghostParallaxY = useSpring(ghostOffsetY, { damping: 32, stiffness: 92 });
 
-      if (isMobile) {
-        // ── Mobile: simple fade-out, no pin ──────────────────────────────
-        const shared = {
-          ease: "none" as const,
-          scrollTrigger: { trigger: section, start: "top top", end: "bottom top", scrub: 1.2 },
-        };
-        if (titleRef.current)    gsap.to(titleRef.current,    { y: -60, opacity: 0, filter: "blur(4px)", ...shared });
-        if (subtitleRef.current) gsap.to(subtitleRef.current, { y: -40, opacity: 0, ...shared });
-        if (countersRef.current) gsap.to(countersRef.current, { y: -35, opacity: 0, ...shared });
-        return;
-      }
-
-      // ── Desktop: pinned disintegration timeline ───────────────────────
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: section,
-          start: "top top",
-          end: "+=150%",
-          pin: true,
-          scrub: 1.2,
-          anticipatePin: 1,
-          onLeave:      () => setTimeout(() => ScrollTrigger.refresh(), 100),
-          onEnterBack:  () => setTimeout(() => ScrollTrigger.refresh(), 100),
-        },
-      });
-
-      const letterEls = letterRefs.current.filter(Boolean) as HTMLSpanElement[];
-
-      if (raineriWrapRef.current) {
-        gsap.set(raineriWrapRef.current, { clipPath: "inset(0% 0% 0% 0%)" });
-      }
-
-      // ── Phase 1: 0→0.15 — Breath ─────────────────────────────────────
-      if (scrollIndicatorRef.current) {
-        tl.to(scrollIndicatorRef.current, { opacity: 0, y: -20, ease: "none", duration: 0.15 }, 0);
-      }
-      tl.to(ghostRef.current, { scale: 1.04, ease: "none", duration: 0.15 }, 0);
-      [codeTRRef.current, codeRCRef.current, codeBLRef.current, codeBRRef.current].forEach((el) => {
-        if (el) tl.to(el, { y: -8, ease: "none", duration: 0.15 }, 0);
-      });
-
-      // ── Phase 2: 0.15→0.45 — Departure ──────────────────────────────
-      letterEls.forEach((el, i) => {
-        const s = MATTEO_SCATTER[i] ?? { x: 0, y: 0, blur: 0, r: 0 };
-        const w = LETTER_WEIGHTS[i] ?? 1;
-        tl.to(el, {
-          x: s.x * w,
-          y: s.y * w,
-          rotation: s.r * w,
-          opacity: 0,
-          filter: `blur(${s.blur}px)`,
-          ease: "power3.in",
-          duration: 0.28,
-        }, 0.15 + i * 0.015);
-      });
-
-      if (raineriWrapRef.current) {
-        tl.to(raineriWrapRef.current, {
-          clipPath: "inset(0% 0% 0% 100%)",
-          filter: "blur(3px)",
-          letterSpacing: "0.08em",
-          ease: "none",
-          duration: 0.18,
-        }, 0.22);
-      }
-
-      // Separator — collapses from right
-      if (separatorRef.current) {
-        tl.to(separatorRef.current, { scaleX: 0, transformOrigin: "right center", ease: "none", duration: 0.15 }, 0.20);
-      }
-
-      // ── Phase 3: 0.45→0.70 — Disintegration ──────────────────────────
-      const panelExits = [
-        { el: codeTRRef.current,  x:  200, y: -180, r:  8, blur: 12 },
-        { el: codeRCRef.current,  x:  260, y:  100, r: -5, blur: 10 },
-        { el: codeBLRef.current,  x: -220, y:  150, r:  6, blur: 14 },
-        { el: codeBRRef.current,  x:  180, y:  200, r: -7, blur: 11 },
-      ];
-      panelExits.forEach(({ el, x, y, r, blur }, i) => {
-        if (!el) return;
-        tl.to(el, { x, y, rotation: r, opacity: 0, filter: `blur(${blur}px)`, ease: "none", duration: 0.25 }, 0.45 + i * 0.03);
-      });
-
-      if (subtitleRef.current) {
-        tl.to(subtitleRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.20 }, 0.45);
-      }
-      if (countersRef.current) {
-        tl.to(countersRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.20 }, 0.50);
-      }
-      if (eyebrowRef.current) {
-        tl.to(eyebrowRef.current, { y: -40, opacity: 0, ease: "none", duration: 0.10 }, 0.50);
-      }
-
-      // ── Phase 4: 0.70→1.0 — Void ─────────────────────────────────────
-      tl.to(ghostRef.current,  { scale: 1.15, opacity: 0, filter: "blur(20px)", ease: "none", duration: 0.30 }, 0.70)
-        .to(leftOrbRef.current, { scale: 1.3,  opacity: 0, filter: "blur(160px)", ease: "none", duration: 0.30 }, 0.70);
-    },
-    [],
-    sectionRef,
-  );
+  // ── Reduced-motion detection ─────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      setPrefersReducedMotion(mq.matches);
+      if (mq.matches) setRaineriRevealed(true);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   // ── Font + style injection ──────────────────────────────────────────────
   useEffect(() => {
@@ -440,37 +370,265 @@ export function Hero() {
     };
   }, []);
 
-  // ── Reveal + reduced-motion state ───────────────────────────────────────
-  const [raineriRevealed, setRaineriRevealed] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GSAP ENTRANCE TIMELINE — time-based, NOT scroll-driven
+  // Replaces all motion/react entrance animations with a single GSAP timeline.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
 
-  // ── Scene parallax motionValues (mouse-driven) ──────────────────────────
-  const titleOffsetX = useMotionValue(0);
-  const titleOffsetY = useMotionValue(0);
-  const beamOffsetX = useMotionValue(0);
-  const beamOffsetY = useMotionValue(0);
-  const ghostOffsetX = useMotionValue(0);
-  const ghostOffsetY = useMotionValue(0);
-  const titleParallaxX = useSpring(titleOffsetX, { damping: 36, stiffness: 110 });
-  const titleParallaxY = useSpring(titleOffsetY, { damping: 36, stiffness: 110 });
-  const beamParallaxX = useSpring(beamOffsetX, { damping: 28, stiffness: 84 });
-  const beamParallaxY = useSpring(beamOffsetY, { damping: 28, stiffness: 84 });
-  const ghostParallaxX = useSpring(ghostOffsetX, { damping: 32, stiffness: 92 });
-  const ghostParallaxY = useSpring(ghostOffsetY, { damping: 32, stiffness: 92 });
+      // Check reduced motion directly (state may not be settled yet)
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+      if (reducedMotion) {
+        // Instantly reveal everything
+        const allEls = [
+          eyebrowRef.current, subtitleRef.current, countersRef.current,
+          scrollIndicatorRef.current, ghostRef.current, beamRef.current,
+        ].filter(Boolean);
+        gsap.set(allEls, { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 });
 
-  // ── Reduced-motion detection ─────────────────────────────────────────────
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => {
-      setPrefersReducedMotion(mq.matches);
-      if (mq.matches) setRaineriRevealed(true);
-    };
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
+        const letterEls = letterRefs.current.filter(Boolean) as HTMLSpanElement[];
+        gsap.set(letterEls, { opacity: 1, y: 0 });
+
+        if (raineriWrapRef.current) gsap.set(raineriWrapRef.current, { clipPath: "inset(0 0% 0 0)" });
+        if (separatorRef.current)   gsap.set(separatorRef.current, { scaleX: 1 });
+
+        if (codeTRRef.current) gsap.set(codeTRRef.current, { opacity: PANEL_OPACITIES.TR, y: 0, filter: "blur(0px)", scale: 1 });
+        if (codeRCRef.current) gsap.set(codeRCRef.current, { opacity: PANEL_OPACITIES.RC, y: 0, filter: "blur(0px)", scale: 1 });
+        if (codeBLRef.current) gsap.set(codeBLRef.current, { opacity: PANEL_OPACITIES.BL, y: 0, filter: "blur(0px)", scale: 1 });
+        if (codeBRRef.current) gsap.set(codeBRRef.current, { opacity: PANEL_OPACITIES.BR, y: 0, filter: "blur(0px)", scale: 1 });
+
+        setRaineriRevealed(true);
+        setEntranceComplete(true);
+        return;
+      }
+
+      const intro = gsap.timeline({
+        delay: 0.1,
+        onComplete: () => setEntranceComplete(true),
+      });
+
+      // ── Eyebrow — 0.0s ──
+      if (eyebrowRef.current) {
+        intro.to(eyebrowRef.current, {
+          opacity: 1, y: 0, duration: 0.7, ease: "power4.out",
+        }, 0);
+      }
+
+      // ── Letters "Matteo" — staggered from 0.2s ──
+      const letterEls = letterRefs.current.filter(Boolean) as HTMLSpanElement[];
+      if (letterEls.length > 0) {
+        intro.to(letterEls, {
+          opacity: 1, y: 0, duration: 0.72, ease: "power4.out",
+          stagger: 0.032,
+        }, 0.2);
+      }
+
+      // ── "Raineri" — clip-path reveal from 0.55s ──
+      if (raineriWrapRef.current) {
+        intro.to(raineriWrapRef.current, {
+          clipPath: "inset(0 0% 0 0)", duration: 1.0, ease: "power4.out",
+          onComplete: () => setRaineriRevealed(true),
+        }, 0.55);
+      }
+
+      // ── Beam — from 0.58s ──
+      if (beamRef.current) {
+        intro.to(beamRef.current, {
+          opacity: 1, scale: 1, filter: "blur(0px)", duration: 1.8, ease: "power4.out",
+        }, 0.58);
+      }
+
+      // ── Separator — from 0.72s ──
+      if (separatorRef.current) {
+        intro.to(separatorRef.current, {
+          scaleX: 1, duration: 1.25, ease: "power4.out",
+        }, 0.72);
+      }
+
+      // ── Subtitle — from 0.82s ──
+      if (subtitleRef.current) {
+        intro.to(subtitleRef.current, {
+          opacity: 1, y: 0, duration: 0.95, ease: "power4.out",
+        }, 0.82);
+      }
+
+      // ── Ghost "01" — from 0.92s ──
+      if (ghostRef.current) {
+        intro.to(ghostRef.current, {
+          opacity: 1, filter: "blur(0px)", duration: 1.7, ease: "power4.out",
+        }, 0.92);
+      }
+
+      // ── Counters — from 1.02s ──
+      if (countersRef.current) {
+        intro.to(countersRef.current, {
+          opacity: 1, y: 0, duration: 0.95, ease: "power4.out",
+        }, 1.02);
+      }
+
+      // ── Code panels — staggered from 1.15s ──
+      const panelEntrance = [
+        { el: codeTRRef.current, delay: 1.15, finalOpacity: PANEL_OPACITIES.TR },
+        { el: codeRCRef.current, delay: 1.35, finalOpacity: PANEL_OPACITIES.RC },
+        { el: codeBLRef.current, delay: 1.55, finalOpacity: PANEL_OPACITIES.BL },
+        { el: codeBRRef.current, delay: 1.75, finalOpacity: PANEL_OPACITIES.BR },
+      ];
+      panelEntrance.forEach(({ el, delay, finalOpacity }) => {
+        if (!el) return;
+        intro.to(el, {
+          opacity: finalOpacity, y: 0, filter: "blur(0px)", scale: 1,
+          duration: 1.2, ease: "power4.out",
+        }, delay);
+      });
+
+      // ── Scroll indicator — from 2.1s ──
+      if (scrollIndicatorRef.current) {
+        intro.to(scrollIndicatorRef.current, {
+          opacity: 1, duration: 1.15, ease: "power2.out",
+        }, 2.1);
+      }
+    },
+    [],
+    sectionRef,
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GSAP SCROLL EXIT TIMELINE — scroll-driven, gated behind entranceComplete
+  // Only created after entrance finishes so GSAP FROM values are correct.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useGSAP(
+    () => {
+      if (!entranceComplete) return;
+
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const isMobile = !window.matchMedia("(min-width: 1024px)").matches;
+
+      if (isMobile) {
+        const shared = {
+          ease: "none" as const,
+          scrollTrigger: { trigger: section, start: "top top", end: "bottom top", scrub: 1.2 },
+        };
+        if (titleRef.current)    gsap.to(titleRef.current,    { y: -60, opacity: 0, filter: "blur(4px)", ...shared });
+        if (subtitleRef.current) gsap.to(subtitleRef.current, { y: -40, opacity: 0, ...shared });
+        if (countersRef.current) gsap.to(countersRef.current, { y: -35, opacity: 0, ...shared });
+        return;
+      }
+
+      const letterEls = letterRefs.current.filter(Boolean) as HTMLSpanElement[];
+      const panelEls = [codeTRRef.current, codeRCRef.current, codeBLRef.current, codeBRRef.current];
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: "+=150%",
+          pin: true,
+          scrub: 1.2,
+          anticipatePin: 1,
+          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onUpdate: (self) => {
+            // When scrub returns to zero, clear GSAP inline styles so
+            // CSS float animations can resume on code panels
+            if (self.progress < 0.005 && self.direction === -1) {
+              panelEls.forEach((el) => {
+                if (el) gsap.set(el, { clearProps: "x,y,rotation,filter,scale" });
+              });
+              if (codeTRRef.current) gsap.set(codeTRRef.current, { opacity: PANEL_OPACITIES.TR });
+              if (codeRCRef.current) gsap.set(codeRCRef.current, { opacity: PANEL_OPACITIES.RC });
+              if (codeBLRef.current) gsap.set(codeBLRef.current, { opacity: PANEL_OPACITIES.BL });
+              if (codeBRRef.current) gsap.set(codeBRRef.current, { opacity: PANEL_OPACITIES.BR });
+
+              letterEls.forEach((el) => {
+                gsap.set(el, { x: 0, y: 0, rotation: 0, opacity: 1, filter: "blur(0px)" });
+              });
+            }
+          },
+        },
+      });
+
+      // ── Dead zone: 0→0.10 — nothing animates ─────────────────────────
+      tl.to({}, { duration: 0.10 });
+
+      // ── Phase 1: 0.10→0.20 — Breath ──────────────────────────────────
+      if (scrollIndicatorRef.current) {
+        tl.to(scrollIndicatorRef.current, { opacity: 0, y: -20, ease: "none", duration: 0.10 }, 0.10);
+      }
+      if (ghostRef.current) {
+        tl.to(ghostRef.current, { scale: 1.04, ease: "none", duration: 0.10 }, 0.10);
+      }
+      panelEls.forEach((el) => {
+        if (el) tl.to(el, { y: -8, ease: "none", duration: 0.10 }, 0.10);
+      });
+
+      // ── Phase 2: 0.20→0.50 — Departure ──────────────────────────────
+      letterEls.forEach((el, i) => {
+        const s = MATTEO_SCATTER[i] ?? { x: 0, y: 0, blur: 0, r: 0 };
+        tl.to(el, {
+          x: s.x, y: s.y, rotation: s.r, filter: `blur(${s.blur}px)`,
+          ease: "none", duration: 0.25,
+        }, 0.20 + i * 0.012);
+        tl.to(el, { opacity: 0, ease: "none", duration: 0.10 }, 0.32 + i * 0.015);
+      });
+
+      if (raineriWrapRef.current) {
+        tl.to(raineriWrapRef.current, {
+          clipPath: "inset(0 0 0 100%)", x: -60, opacity: 0,
+          ease: "none", duration: 0.15,
+        }, 0.28);
+      }
+
+      if (separatorRef.current) {
+        tl.to(separatorRef.current, {
+          scaleX: 0, transformOrigin: "right center", ease: "none", duration: 0.15,
+        }, 0.24);
+      }
+
+      // ── Phase 3: 0.50→0.75 — Disintegration ──────────────────────────
+      const panelExits = [
+        { el: codeTRRef.current,  x:  200, y: -180, r:  8, blur: 12 },
+        { el: codeRCRef.current,  x:  260, y:  100, r: -5, blur: 10 },
+        { el: codeBLRef.current,  x: -220, y:  150, r:  6, blur: 14 },
+        { el: codeBRRef.current,  x:  180, y:  200, r: -7, blur: 11 },
+      ];
+      panelExits.forEach(({ el, x, y, r, blur }, i) => {
+        if (!el) return;
+        tl.to(el, {
+          x, y, rotation: r, opacity: 0, filter: `blur(${blur}px)`,
+          ease: "none", duration: 0.22,
+        }, 0.50 + i * 0.025);
+      });
+
+      if (subtitleRef.current) {
+        tl.to(subtitleRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.18 }, 0.50);
+      }
+      if (countersRef.current) {
+        tl.to(countersRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.18 }, 0.54);
+      }
+      if (eyebrowRef.current) {
+        tl.to(eyebrowRef.current, { y: -40, opacity: 0, ease: "none", duration: 0.10 }, 0.55);
+      }
+
+      // ── Phase 4: 0.75→1.0 — Void ─────────────────────────────────────
+      if (ghostRef.current) {
+        tl.to(ghostRef.current, { scale: 1.15, opacity: 0, filter: "blur(20px)", ease: "none", duration: 0.25 }, 0.75);
+      }
+      if (leftOrbRef.current) {
+        tl.to(leftOrbRef.current, { scale: 1.3, opacity: 0, filter: "blur(160px)", ease: "none", duration: 0.25 }, 0.75);
+      }
+
+      // Force refresh so downstream sections recalculate with pin spacer
+      setTimeout(() => ScrollTrigger.refresh(), 200);
+    },
+    [entranceComplete],
+    sectionRef,
+  );
 
   // ── Ambient pulse — fires once when "Raineri" reveal completes ───────────
   useEffect(() => {
@@ -574,42 +732,37 @@ export function Hero() {
           className="hero-noise absolute inset-0 z-[1] opacity-[0.04] pointer-events-none"
         />
 
+        {/* Ghost "01" — motion.div is parallax wrapper only, inner div is GSAP target */}
         <motion.div
-          ref={ghostRef}
           aria-hidden="true"
           className="pointer-events-none absolute right-[-1%] top-[18%] z-[2] hidden select-none lg:block"
-          initial={{ opacity: 0, y: 20, filter: "blur(12px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 1.7, delay: 0.92, ease: EXPO_EASE }}
           style={{ x: ghostParallaxX, y: ghostParallaxY }}
         >
           <div
-            className="text-[clamp(11rem,25vw,29rem)] font-extrabold leading-none tracking-[-0.08em]"
-            style={{
-              fontFamily: "'Syne', sans-serif",
-              color: "rgba(147,197,253,0.075)",
-              WebkitTextStroke: "1px rgba(191,219,254,0.09)",
-              textShadow: "0 0 42px rgba(59,130,246,0.08)",
-            }}
+            ref={ghostRef}
+            style={{ opacity: 0, filter: "blur(12px)" }}
           >
-            01
+            <div
+              className="text-[clamp(11rem,25vw,29rem)] font-extrabold leading-none tracking-[-0.08em]"
+              style={{
+                fontFamily: "'Syne', sans-serif",
+                color: "rgba(147,197,253,0.075)",
+                WebkitTextStroke: "1px rgba(191,219,254,0.09)",
+                textShadow: "0 0 42px rgba(59,130,246,0.08)",
+              }}
+            >
+              01
+            </div>
           </div>
         </motion.div>
 
-        {/* Scenic props */}
-        <motion.div
+        {/* Scenic code panels — plain divs, GSAP handles entrance + exit */}
+        <div
           ref={codeTRRef}
           aria-hidden="true"
           data-hero-code="scene-panel"
           className="hero-panel hero-code hero-float-tr absolute right-[4.5%] top-[8%] z-[2] hidden w-[min(27rem,29vw)] px-6 py-5 lg:block"
-          initial={{ opacity: 0, y: 18, filter: "blur(8px)", scale: 0.985 }}
-          animate={{
-            opacity: [0, 0.96, 0.62],
-            y: [18, 0, 0],
-            filter: ["blur(8px)", "blur(0px)", "blur(0px)"],
-            scale: [0.985, 1, 0.99],
-          }}
-          transition={{ duration: 2.5, delay: 1.15, ease: EXPO_EASE, times: [0, 0.44, 1] }}
+          style={{ opacity: 0, transform: "translateY(18px) scale(0.985)", filter: "blur(8px)" }}
         >
           <div className="hero-panel-label">Scene Builder</div>
           <span className="t-cmt">{"// headline staging"}</span>{"\n"}
@@ -634,21 +787,14 @@ export function Hero() {
           <span className="t-op">: </span>
           <span className="t-num">0.82</span>{"\n"}
           <span className="t-sym">{"});"}</span>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <div
           ref={codeRCRef}
           aria-hidden="true"
           data-hero-code="stage-map"
           className="hero-panel hero-code hero-float-rc absolute right-[2.4%] top-[35%] z-[2] hidden w-[210px] px-5 py-5 xl:block"
-          initial={{ opacity: 0, y: 18, filter: "blur(8px)", scale: 0.985 }}
-          animate={{
-            opacity: [0, 0.84, 0.48],
-            y: [18, 0, 0],
-            filter: ["blur(8px)", "blur(0px)", "blur(0px)"],
-            scale: [0.985, 1, 0.99],
-          }}
-          transition={{ duration: 2.35, delay: 1.35, ease: EXPO_EASE, times: [0, 0.4, 1] }}
+          style={{ opacity: 0, transform: "translateY(18px) scale(0.985)", filter: "blur(8px)" }}
         >
           <div className="hero-panel-label">Stage Map</div>
           <span className="t-dim">x-axis</span>{"  "}
@@ -661,21 +807,14 @@ export function Hero() {
           <span className="t-str">soft-blue</span>{"\n"}
           <span className="t-dim">focus </span>{"  "}
           <span className="t-str">headline</span>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <div
           ref={codeBLRef}
           aria-hidden="true"
           data-hero-code="terminal"
           className="hero-panel hero-float-bl absolute bottom-[11%] left-[2.8%] z-[2] hidden w-[240px] lg:block"
-          initial={{ opacity: 0, y: 18, filter: "blur(8px)", scale: 0.985 }}
-          animate={{
-            opacity: [0, 0.88, 0.56],
-            y: [18, 0, 0],
-            filter: ["blur(8px)", "blur(0px)", "blur(0px)"],
-            scale: [0.985, 1, 0.992],
-          }}
-          transition={{ duration: 2.45, delay: 1.55, ease: EXPO_EASE, times: [0, 0.42, 1] }}
+          style={{ opacity: 0, transform: "translateY(18px) scale(0.985)", filter: "blur(8px)" }}
         >
           <div className="hero-terminal-bar">
             <div
@@ -711,21 +850,14 @@ export function Hero() {
             <span className="t-dim">render stage ready</span>
             {"\n"}<span className="hero-terminal-cursor" aria-hidden="true" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <div
           ref={codeBRRef}
           aria-hidden="true"
           data-hero-code="build-strip"
           className="hero-panel hero-code hero-float-br absolute bottom-[13%] right-[4.2%] z-[2] hidden w-[250px] px-5 py-5 xl:block"
-          initial={{ opacity: 0, y: 18, filter: "blur(8px)", scale: 0.985 }}
-          animate={{
-            opacity: [0, 0.82, 0.46],
-            y: [18, 0, 0],
-            filter: ["blur(8px)", "blur(0px)", "blur(0px)"],
-            scale: [0.985, 1, 0.99],
-          }}
-          transition={{ duration: 2.3, delay: 1.75, ease: EXPO_EASE, times: [0, 0.4, 1] }}
+          style={{ opacity: 0, transform: "translateY(18px) scale(0.985)", filter: "blur(8px)" }}
         >
           <div className="hero-panel-label">Render Notes</div>
           <span className="t-cmt">{"// supporting system"}</span>{"\n"}
@@ -738,16 +870,15 @@ export function Hero() {
           <span className="t-fn">timing</span>
           <span className="t-op">:</span>{"      "}
           <span className="t-str">cinematic</span>
-        </motion.div>
+        </div>
 
         {/* Main content */}
         <div className="relative z-10 mx-auto w-full max-w-[1720px] px-6 py-28 md:px-12 lg:px-20 lg:py-32 xl:py-36">
-          <motion.div
+          {/* Eyebrow — plain div, GSAP entrance */}
+          <div
             ref={eyebrowRef}
             className="mb-10 flex items-center gap-3"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1, ease: EXPO_EASE }}
+            style={{ opacity: 0, transform: "translateY(10px)" }}
           >
             <div className="h-px w-8 bg-blue-400/60" />
             <span
@@ -756,39 +887,44 @@ export function Hero() {
             >
               MR — Frontend Engineer / Motion Systems
             </span>
-          </motion.div>
+          </div>
 
           <div className="relative max-w-[1460px]">
+            {/* Beam — motion.div for parallax only, inner div for GSAP entrance */}
             <motion.div
               aria-hidden="true"
               className="pointer-events-none absolute left-[5%] top-[24%] z-0 hidden lg:block"
-              initial={{ opacity: 0, scale: 0.92, filter: "blur(28px)" }}
-              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-              transition={{ duration: 1.8, delay: 0.58, ease: EXPO_EASE }}
               style={{ x: beamParallaxX, y: beamParallaxY }}
             >
               <div
-                className="h-[6.25rem] w-[36rem] -rotate-[7deg] rounded-full blur-[26px]"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 56% 62% at 42% 50%, rgba(219,234,254,0.55) 0%, rgba(125,211,252,0.32) 32%, rgba(59,130,246,0.16) 58%, transparent 78%)",
-                }}
-              />
-              <div
-                className="absolute left-[16%] top-[20%] h-[2.1rem] w-[19rem] -rotate-[4deg] rounded-full blur-[10px]"
-                style={{
-                  background:
-                    "linear-gradient(90deg, transparent 0%, rgba(191,219,254,0.12) 18%, rgba(219,234,254,0.42) 48%, rgba(96,165,250,0.18) 76%, transparent 100%)",
-                }}
-              />
+                ref={beamRef}
+                style={{ opacity: 0, transform: "scale(0.92)", filter: "blur(28px)" }}
+              >
+                <div
+                  className="h-[6.25rem] w-[36rem] -rotate-[7deg] rounded-full blur-[26px]"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse 56% 62% at 42% 50%, rgba(219,234,254,0.55) 0%, rgba(125,211,252,0.32) 32%, rgba(59,130,246,0.16) 58%, transparent 78%)",
+                  }}
+                />
+                <div
+                  className="absolute left-[16%] top-[20%] h-[2.1rem] w-[19rem] -rotate-[4deg] rounded-full blur-[10px]"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent 0%, rgba(191,219,254,0.12) 18%, rgba(219,234,254,0.42) 48%, rgba(96,165,250,0.18) 76%, transparent 100%)",
+                  }}
+                />
+              </div>
             </motion.div>
 
+            {/* Title — motion.div for parallax only */}
             <motion.div style={{ x: titleParallaxX, y: titleParallaxY }}>
               <h1
                 ref={titleRef}
                 className="relative z-10 -ml-1 select-none md:-ml-2 lg:-ml-3 xl:-ml-4"
                 aria-label="Matteo Raineri"
               >
+                {/* "Matteo" — single span per letter, no overflow:hidden, GSAP handles all */}
                 <span
                   className="block text-[clamp(4.9rem,11.8vw,14.8rem)] font-extrabold leading-[0.84] tracking-[-0.05em] text-white"
                   style={{
@@ -802,66 +938,44 @@ export function Hero() {
                       ref={(el) => { letterRefs.current[i] = el; }}
                       style={{
                         display: "inline-block",
-                        overflow: "hidden",
-                        verticalAlign: "bottom",
+                        opacity: 0,
+                        transform: "translateY(40px)",
                       }}
                     >
-                      <motion.span
-                        style={{ display: "inline-block" }}
-                        initial={prefersReducedMotion ? { opacity: 0 } : { y: "105%" }}
-                        animate={prefersReducedMotion ? { opacity: 1 } : { y: "0%" }}
-                        transition={{
-                          duration: 0.72,
-                          delay: 0.22 + i * 0.032,
-                          ease: EXPO_EASE,
-                        }}
-                      >
-                        {char}
-                      </motion.span>
+                      {char}
                     </span>
                   ))}
                 </span>
 
-                <span ref={raineriWrapRef} style={{ display: "block" }}>
-                  <motion.span
+                {/* "Raineri" — clip-path on wrapper, GSAP handles reveal + exit */}
+                <span
+                  ref={raineriWrapRef}
+                  style={{ display: "block", clipPath: "inset(0 100% 0 0)" }}
+                >
+                  <span
                     className={`hero-stroke${raineriRevealed ? " hero-stroke-live" : ""} block ml-[6%] text-[clamp(5.6rem,14.6vw,18.5rem)] leading-[0.8] tracking-[-0.06em]`}
-                    initial={
-                      prefersReducedMotion
-                        ? { opacity: 0 }
-                        : { clipPath: "inset(0 100% 0 0)", y: 8 }
-                    }
-                    animate={
-                      prefersReducedMotion
-                        ? { opacity: 1 }
-                        : { clipPath: "inset(0 0% 0 0)", y: 0 }
-                    }
-                    transition={{ duration: 1.0, delay: 0.55, ease: EXPO_EASE }}
-                    onAnimationComplete={() => setRaineriRevealed(true)}
                   >
                     Raineri
-                  </motion.span>
+                  </span>
                 </span>
               </h1>
             </motion.div>
           </div>
 
-          <motion.div
+          {/* Separator — plain div, GSAP entrance + exit */}
+          <div
             ref={separatorRef}
             aria-hidden="true"
             className="mt-12 ml-[2%] h-px bg-gradient-to-r from-blue-300/55 via-blue-400/18 to-transparent"
-            style={{ width: "94%" }}
-            initial={{ scaleX: 0, originX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: 1.25, delay: 0.72, ease: EXPO_EASE }}
+            style={{ width: "94%", transform: "scaleX(0)", transformOrigin: "left center" }}
           />
 
           <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,18rem)] lg:items-end lg:gap-16 xl:gap-24">
-            <motion.div
+            {/* Subtitle — plain div, GSAP entrance + exit */}
+            <div
               ref={subtitleRef}
               className="ml-[2%] max-w-[38rem] space-y-7"
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.95, delay: 0.82, ease: EXPO_EASE }}
+              style={{ opacity: 0, transform: "translateY(22px)" }}
             >
               <p
                 className="text-[clamp(1rem,1.8vw,1.34rem)] leading-relaxed text-white/66"
@@ -880,6 +994,7 @@ export function Hero() {
               </div>
 
               <div className="flex flex-wrap items-center gap-6">
+                {/* CTA — keeps motion.a for whileHover/whileTap (no GSAP conflict) */}
                 <motion.a
                   href="#work"
                   aria-label="View selected work"
@@ -904,14 +1019,13 @@ export function Hero() {
                   <ArrowRight className="h-3 w-3 opacity-40" />
                 </a>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
+            {/* Counters — plain div, GSAP entrance + exit */}
+            <div
               ref={countersRef}
               className="grid grid-cols-3 gap-4 sm:gap-5 lg:grid-cols-1 lg:justify-items-end lg:gap-5"
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.95, delay: 1.02, ease: EXPO_EASE }}
+              style={{ opacity: 0, transform: "translateY(22px)" }}
             >
               {COUNTER_DATA.map(({ label, sublabel }, index) => (
                 <div
@@ -933,17 +1047,17 @@ export function Hero() {
                   </span>
                 </div>
               ))}
-            </motion.div>
+            </div>
           </div>
         </div>
 
-        <motion.div
+        {/* Scroll indicator — plain div, GSAP entrance + exit.
+            Inner bouncing line stays as motion.div (continuous loop, no conflict). */}
+        <div
           ref={scrollIndicatorRef}
           aria-hidden="true"
           className="absolute bottom-10 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.15, delay: 2.1 }}
+          style={{ opacity: 0 }}
         >
           <div className="flex flex-col items-center gap-1">
             <span
@@ -971,7 +1085,7 @@ export function Hero() {
               }}
             />
           </div>
-        </motion.div>
+        </div>
       </section>
     </>
   );

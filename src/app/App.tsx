@@ -30,9 +30,11 @@ export default function App() {
     const loaderTimer = setTimeout(() => setIsLoading(false), 2500);
     // After all sections mount and GSAP pins are created, recalculate
     // ScrollTrigger positions so downstream triggers account for pin spacers
-    const refreshTimer  = setTimeout(() => { ScrollTrigger.sort(); refreshScrollTriggers(); }, 4000);
-    const refresh2Timer = setTimeout(() => refreshScrollTriggers(), 5500);
-    const refresh3Timer = setTimeout(() => refreshScrollTriggers(), 7000);
+    // Hero entrance ~3.25s after mount at 2150ms ≈ 5400ms, then pin creates.
+    // First refresh after pin exists, second as safety net.
+    const refreshTimer  = setTimeout(() => { ScrollTrigger.sort(); refreshScrollTriggers(); }, 6000);
+    const refresh2Timer = setTimeout(() => refreshScrollTriggers(), 8000);
+    const refresh3Timer = setTimeout(() => refreshScrollTriggers(), 10000);
     return () => {
       clearTimeout(heroTimer);
       clearTimeout(loaderTimer);
