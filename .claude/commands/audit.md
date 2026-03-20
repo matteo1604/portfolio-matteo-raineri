@@ -1,0 +1,1 @@
+Esegui un audit completo del componente $ARGUMENTS seguendo la skill component-audit. Leggi il CLAUDE.md, analizza il componente, identifica il punto più debole secondo la priority order, e proponimi la strategia di miglioramento. Non scrivere codice finché non approvo.
