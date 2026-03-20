@@ -3,6 +3,7 @@
 import { motion, useMotionValue, useSpring } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE (Next.js): move Syne + DM Mono to app/layout.tsx via `next/font/google`
@@ -75,6 +76,9 @@ const HERO_CSS = `
     -webkit-background-clip: text;
     background-clip: text;
     text-shadow: 0 0 34px rgba(59, 130, 246, 0.10);
+  }
+
+  .hero-stroke-live {
     animation: hero-shimmer 10.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
 
@@ -243,13 +247,41 @@ const HERO_CSS = `
     32%      { transform: translate3d(-8px, 10px, 0px) rotate(-1deg); }
     65%      { transform: translate3d(5px, 16px, 0px) rotate(0.7deg); }
   }
+
+  .hero-terminal-cursor {
+    display: inline-block;
+    width: 5px;
+    height: 9px;
+    background: rgba(125, 211, 252, 0.52);
+    margin-left: 3px;
+    vertical-align: middle;
+    animation: hero-cursor-blink 1.1s step-end infinite;
+  }
+
+  @keyframes hero-cursor-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
 `;
 
 // ── Counter config ──────────────────────────────────────────────────────────
 const COUNTER_DATA = [
-  { label: "Years", sublabel: "of craft" },
-  { label: "Projects", sublabel: "launched" },
+  { label: "Years", sublabel: "active" },
+  { label: "Projects", sublabel: "shipped" },
   { label: "Clients", sublabel: "selected" },
+] as const;
+
+// ── Pre-computed letter scatter vectors ───────────────────────────────────────
+// Stable module-level const — never recreated on render.
+// Heavier letters (M, o) scatter less; lighter ones scatter more.
+// Direction: first letter up-left, last letter down-right, middles diverge.
+const MATTEO_SCATTER = [
+  { x: -80,  y: -40, blur: 2,   r: -5  },  // M — heavy, up-left
+  { x: -110, y: -55, blur: 3.5, r:  6  },  // a
+  { x:  130, y: -78, blur: 5,   r: -10 },  // t
+  { x: -158, y:  92, blur: 6.5, r:  13 },  // t
+  { x:  195, y:  72, blur: 8,   r: -8  },  // e
+  { x:  225, y: 130, blur: 9.5, r:  14 },  // o — down-right
 ] as const;
 
 export function Hero() {
@@ -264,6 +296,104 @@ export function Hero() {
   const codeRCRef = useRef<HTMLDivElement>(null);
   const codeBLRef = useRef<HTMLDivElement>(null);
   const codeBRRef = useRef<HTMLDivElement>(null);
+  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const leftOrbRef = useRef<HTMLDivElement>(null);
+  const letterRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const raineriWrapRef = useRef<HTMLSpanElement>(null);
+
+  // ── GSAP cinematic scroll sequence — pin + choreographed disintegration ────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const isMobile = !window.matchMedia("(min-width: 1024px)").matches;
+
+      if (isMobile) {
+        // ── Mobile: simple fade-out, no pin ──────────────────────────────
+        const shared = {
+          ease: "none" as const,
+          scrollTrigger: { trigger: section, start: "top top", end: "bottom top", scrub: 1.2 },
+        };
+        if (titleRef.current)    gsap.to(titleRef.current,    { y: -60, opacity: 0, filter: "blur(4px)", ...shared });
+        if (subtitleRef.current) gsap.to(subtitleRef.current, { y: -40, opacity: 0, ...shared });
+        if (countersRef.current) gsap.to(countersRef.current, { y: -35, opacity: 0, ...shared });
+        return;
+      }
+
+      // ── Desktop: pinned disintegration timeline ───────────────────────
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: "+=150%",
+          pin: true,
+          scrub: 1.2,
+          anticipatePin: 1,
+          onLeave:      () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onEnterBack:  () => setTimeout(() => ScrollTrigger.refresh(), 100),
+        },
+      });
+
+      const letterEls = letterRefs.current.filter(Boolean) as HTMLSpanElement[];
+
+      // ── Phase 1: 0→0.15 — Breath ─────────────────────────────────────
+      if (scrollIndicatorRef.current) {
+        tl.to(scrollIndicatorRef.current, { opacity: 0, y: -20, ease: "none", duration: 0.15 }, 0);
+      }
+      tl.to(ghostRef.current, { scale: 1.04, ease: "none", duration: 0.15 }, 0);
+      [codeTRRef.current, codeRCRef.current, codeBLRef.current, codeBRRef.current].forEach((el) => {
+        if (el) tl.to(el, { y: -8, ease: "none", duration: 0.15 }, 0);
+      });
+
+      // ── Phase 2: 0.15→0.45 — Departure ──────────────────────────────
+      // Per-letter scatter
+      letterEls.forEach((el, i) => {
+        const s = MATTEO_SCATTER[i] ?? { x: 0, y: 0, blur: 0, r: 0 };
+        tl.to(el, { x: s.x, y: s.y, rotation: s.r, filter: `blur(${s.blur}px)`, ease: "none", duration: 0.25 }, 0.15)
+          .to(el, { opacity: 0, ease: "none", duration: 0.12 }, 0.26 + i * 0.018);
+      });
+
+      // Raineri wrapper — translate + fade
+      if (raineriWrapRef.current) {
+        tl.to(raineriWrapRef.current, { x: -60, opacity: 0, ease: "none", duration: 0.15 }, 0.25);
+      }
+
+      // Separator — collapses from right
+      if (separatorRef.current) {
+        tl.to(separatorRef.current, { scaleX: 0, transformOrigin: "right center", ease: "none", duration: 0.15 }, 0.20);
+      }
+
+      // ── Phase 3: 0.45→0.70 — Disintegration ──────────────────────────
+      const panelExits = [
+        { el: codeTRRef.current,  x:  200, y: -180, r:  8, blur: 12 },
+        { el: codeRCRef.current,  x:  260, y:  100, r: -5, blur: 10 },
+        { el: codeBLRef.current,  x: -220, y:  150, r:  6, blur: 14 },
+        { el: codeBRRef.current,  x:  180, y:  200, r: -7, blur: 11 },
+      ];
+      panelExits.forEach(({ el, x, y, r, blur }, i) => {
+        if (!el) return;
+        tl.to(el, { x, y, rotation: r, opacity: 0, filter: `blur(${blur}px)`, ease: "none", duration: 0.25 }, 0.45 + i * 0.03);
+      });
+
+      if (subtitleRef.current) {
+        tl.to(subtitleRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.20 }, 0.45);
+      }
+      if (countersRef.current) {
+        tl.to(countersRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.20 }, 0.50);
+      }
+      if (eyebrowRef.current) {
+        tl.to(eyebrowRef.current, { y: -40, opacity: 0, ease: "none", duration: 0.10 }, 0.50);
+      }
+
+      // ── Phase 4: 0.70→1.0 — Void ─────────────────────────────────────
+      tl.to(ghostRef.current,  { scale: 1.15, opacity: 0, filter: "blur(20px)", ease: "none", duration: 0.30 }, 0.70)
+        .to(leftOrbRef.current, { scale: 1.3,  opacity: 0, filter: "blur(160px)", ease: "none", duration: 0.30 }, 0.70);
+    },
+    [],
+    sectionRef,
+  );
 
   // ── Font + style injection ──────────────────────────────────────────────
   useEffect(() => {
@@ -292,15 +422,11 @@ export function Hero() {
     };
   }, []);
 
-  // ── Custom cursor ───────────────────────────────────────────────────────
-  const [hasFinePointer, setHasFinePointer] = useState(false);
-  const [cursorVisible, setCursorVisible] = useState(false);
-  const mouseX = useMotionValue(-400);
-  const mouseY = useMotionValue(-400);
-  const dotX = useSpring(mouseX, { damping: 34, stiffness: 440 });
-  const dotY = useSpring(mouseY, { damping: 34, stiffness: 440 });
-  const ringX = useSpring(mouseX, { damping: 22, stiffness: 170 });
-  const ringY = useSpring(mouseY, { damping: 22, stiffness: 170 });
+  // ── Reveal + reduced-motion state ───────────────────────────────────────
+  const [raineriRevealed, setRaineriRevealed] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  // ── Scene parallax motionValues (mouse-driven) ──────────────────────────
   const titleOffsetX = useMotionValue(0);
   const titleOffsetY = useMotionValue(0);
   const beamOffsetX = useMotionValue(0);
@@ -314,29 +440,40 @@ export function Hero() {
   const ghostParallaxX = useSpring(ghostOffsetX, { damping: 32, stiffness: 92 });
   const ghostParallaxY = useSpring(ghostOffsetY, { damping: 32, stiffness: 92 });
 
+
+  // ── Reduced-motion detection ─────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const media = window.matchMedia("(pointer: fine)");
-    const syncPointer = () => {
-      setHasFinePointer(media.matches);
-      if (!media.matches) {
-        setCursorVisible(false);
-      }
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      setPrefersReducedMotion(mq.matches);
+      if (mq.matches) setRaineriRevealed(true);
     };
-
-    syncPointer();
-
-    if (media.addEventListener) {
-      media.addEventListener("change", syncPointer);
-      return () => media.removeEventListener("change", syncPointer);
-    }
-
-    media.addListener(syncPointer);
-    return () => media.removeListener(syncPointer);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
+
+  // ── Ambient pulse — fires once when "Raineri" reveal completes ───────────
+  useEffect(() => {
+    if (!raineriRevealed || prefersReducedMotion || !leftOrbRef.current) return;
+    gsap.to(leftOrbRef.current, {
+      scale: 1.10,
+      opacity: 0.14,
+      duration: 0.7,
+      ease: "power2.out",
+      onComplete: () => {
+        if (leftOrbRef.current) {
+          gsap.to(leftOrbRef.current, {
+            scale: 1,
+            opacity: 0.09,
+            duration: 0.7,
+            ease: "power2.in",
+          });
+        }
+      },
+    });
+  }, [raineriRevealed, prefersReducedMotion]);
 
   // ── Counters ────────────────────────────────────────────────────────────
   const years = useCounter(5);
@@ -355,55 +492,21 @@ export function Hero() {
 
   return (
     <>
-      {cursorVisible && hasFinePointer && (
-        <>
-          <motion.div
-            aria-hidden="true"
-            className="fixed z-[9999] h-1.5 w-1.5 rounded-full bg-white/90 pointer-events-none mix-blend-screen"
-            style={{ x: dotX, y: dotY, translateX: "-50%", translateY: "-50%" }}
-          />
-          <motion.div
-            aria-hidden="true"
-            className="fixed z-[9998] h-10 w-10 rounded-full border border-blue-300/20 bg-blue-400/[0.04] pointer-events-none"
-            style={{ x: ringX, y: ringY, translateX: "-50%", translateY: "-50%" }}
-          />
-        </>
-      )}
-
       <section
         ref={sectionRef}
-        className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#060c1a]"
-        onMouseEnter={() => {
-          if (hasFinePointer) {
-            setCursorVisible(true);
-          }
-        }}
-        onMouseLeave={() => {
-          setCursorVisible(false);
-          resetSceneParallax();
-        }}
+        className="relative flex min-h-screen items-center justify-center bg-[#060c1a]"
+        onMouseLeave={resetSceneParallax}
         onMouseMove={(event) => {
-          if (!hasFinePointer) {
-            return;
-          }
-
-          mouseX.set(event.clientX);
-          mouseY.set(event.clientY);
-
           const bounds = event.currentTarget.getBoundingClientRect();
           const normalizedX = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
           const normalizedY = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
 
-          titleOffsetX.set(normalizedX * 12);
-          titleOffsetY.set(normalizedY * 8);
-          beamOffsetX.set(normalizedX * 26);
-          beamOffsetY.set(normalizedY * 16);
-          ghostOffsetX.set(normalizedX * 10);
-          ghostOffsetY.set(normalizedY * 14);
-
-          if (!cursorVisible) {
-            setCursorVisible(true);
-          }
+          titleOffsetX.set(normalizedX * 22);
+          titleOffsetY.set(normalizedY * 14);
+          beamOffsetX.set(normalizedX * 42);
+          beamOffsetY.set(normalizedY * 26);
+          ghostOffsetX.set(normalizedX * 18);
+          ghostOffsetY.set(normalizedY * 24);
         }}
       >
         {/* Ambient gradients */}
@@ -435,6 +538,7 @@ export function Hero() {
 
         <div
           aria-hidden="true"
+          ref={leftOrbRef}
           className="absolute left-[-10%] top-[16%] z-[1] h-[26rem] w-[58rem] rounded-full bg-blue-500/[0.09] blur-[120px] pointer-events-none"
         />
         <div
@@ -453,6 +557,7 @@ export function Hero() {
         />
 
         <motion.div
+          ref={ghostRef}
           aria-hidden="true"
           className="pointer-events-none absolute right-[-1%] top-[18%] z-[2] hidden select-none lg:block"
           initial={{ opacity: 0, y: 20, filter: "blur(12px)" }}
@@ -464,8 +569,8 @@ export function Hero() {
             className="text-[clamp(11rem,25vw,29rem)] font-extrabold leading-none tracking-[-0.08em]"
             style={{
               fontFamily: "'Syne', sans-serif",
-              color: "rgba(147,197,253,0.045)",
-              WebkitTextStroke: "1px rgba(191,219,254,0.06)",
+              color: "rgba(147,197,253,0.075)",
+              WebkitTextStroke: "1px rgba(191,219,254,0.09)",
               textShadow: "0 0 42px rgba(59,130,246,0.08)",
             }}
           >
@@ -586,6 +691,7 @@ export function Hero() {
             <span className="t-dim">motion calibrated</span>{"\n"}
             <span className="t-num">⚡ </span>
             <span className="t-dim">render stage ready</span>
+            {"\n"}<span className="hero-terminal-cursor" aria-hidden="true" />
           </div>
         </motion.div>
 
@@ -630,7 +736,7 @@ export function Hero() {
               className="text-[10px] uppercase tracking-[0.42em] text-blue-300/65"
               style={{ fontFamily: "'DM Mono', monospace" }}
             >
-              Matteo Raineri — Frontend Developer
+              MR — Frontend Engineer / Motion Systems
             </span>
           </motion.div>
 
@@ -665,27 +771,58 @@ export function Hero() {
                 className="relative z-10 -ml-1 select-none md:-ml-2 lg:-ml-3 xl:-ml-4"
                 aria-label="Matteo Raineri"
               >
-                <motion.span
+                <span
                   className="block text-[clamp(4.9rem,11.8vw,14.8rem)] font-extrabold leading-[0.84] tracking-[-0.05em] text-white"
                   style={{
                     fontFamily: "'Syne', sans-serif",
                     textShadow: "0 0 24px rgba(59,130,246,0.08)",
                   }}
-                  initial={{ opacity: 0, y: 55, filter: "blur(10px)" }}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: 1.2, delay: 0.22, ease: EXPO_EASE }}
                 >
-                  Matteo
-                </motion.span>
+                  {"Matteo".split("").map((char, i) => (
+                    <span
+                      key={i}
+                      ref={(el) => { letterRefs.current[i] = el; }}
+                      style={{
+                        display: "inline-block",
+                        overflow: "hidden",
+                        verticalAlign: "bottom",
+                      }}
+                    >
+                      <motion.span
+                        style={{ display: "inline-block" }}
+                        initial={prefersReducedMotion ? { opacity: 0 } : { y: "105%" }}
+                        animate={prefersReducedMotion ? { opacity: 1 } : { y: "0%" }}
+                        transition={{
+                          duration: 0.72,
+                          delay: 0.22 + i * 0.032,
+                          ease: EXPO_EASE,
+                        }}
+                      >
+                        {char}
+                      </motion.span>
+                    </span>
+                  ))}
+                </span>
 
-                <motion.span
-                  className="hero-stroke block ml-[6%] text-[clamp(5.6rem,14.6vw,18.5rem)] leading-[0.8] tracking-[-0.06em]"
-                  initial={{ opacity: 0, y: 55, filter: "blur(10px)" }}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: 1.2, delay: 0.4, ease: EXPO_EASE }}
-                >
-                  Raineri
-                </motion.span>
+                <span ref={raineriWrapRef} style={{ display: "block" }}>
+                  <motion.span
+                    className={`hero-stroke${raineriRevealed ? " hero-stroke-live" : ""} block ml-[6%] text-[clamp(5.6rem,14.6vw,18.5rem)] leading-[0.8] tracking-[-0.06em]`}
+                    initial={
+                      prefersReducedMotion
+                        ? { opacity: 0 }
+                        : { clipPath: "inset(0 100% 0 0)", y: 8 }
+                    }
+                    animate={
+                      prefersReducedMotion
+                        ? { opacity: 1 }
+                        : { clipPath: "inset(0 0% 0 0)", y: 0 }
+                    }
+                    transition={{ duration: 1.0, delay: 0.55, ease: EXPO_EASE }}
+                    onAnimationComplete={() => setRaineriRevealed(true)}
+                  >
+                    Raineri
+                  </motion.span>
+                </span>
               </h1>
             </motion.div>
           </div>
@@ -712,8 +849,7 @@ export function Hero() {
                 className="text-[clamp(1rem,1.8vw,1.34rem)] leading-relaxed text-white/66"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
-                I build web experiences that land with cinematic force
-                and hold with frontend precision.
+                Motion is the argument. Precision is the proof.
               </p>
 
               <div className="inline-flex items-center rounded-full border border-blue-300/16 bg-white/[0.03] px-5 py-2.5 backdrop-blur-xl">
@@ -721,7 +857,7 @@ export function Hero() {
                   className="text-[10px] uppercase tracking-[0.32em] text-blue-200/64"
                   style={{ fontFamily: "'DM Mono', monospace" }}
                 >
-                  Premium Frontend / Motion Systems
+                  React · GSAP · Motion Design
                 </span>
               </div>
 
@@ -729,22 +865,24 @@ export function Hero() {
                 <motion.a
                   href="#work"
                   aria-label="View selected work"
+                  data-magnetic=""
                   className="group inline-flex items-center gap-2 rounded-full border border-blue-200/14 bg-blue-600/90 px-6 py-3.5 text-[13px] font-medium text-white shadow-[0_16px_46px_rgba(29,78,216,0.24)] transition-all duration-300 hover:bg-blue-500 hover:shadow-[0_18px_54px_rgba(29,78,216,0.34)]"
                   style={{ fontFamily: "'DM Mono', monospace" }}
                   whileHover={{ y: -2, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  View Selected Work
+                  Enter the Archive
                   <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
                 </motion.a>
 
                 <a
                   href="#contact"
                   aria-label="Start a conversation"
+                  data-magnetic=""
                   className="hero-cta-text text-[13px] text-white/58 transition-colors duration-300 hover:text-white/86"
                   style={{ fontFamily: "'DM Mono', monospace" }}
                 >
-                  Start a conversation
+                  Let's build something
                   <ArrowRight className="h-3 w-3 opacity-40" />
                 </a>
               </div>
@@ -782,18 +920,27 @@ export function Hero() {
         </div>
 
         <motion.div
+          ref={scrollIndicatorRef}
           aria-hidden="true"
           className="absolute bottom-10 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-3"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1.15, delay: 2.1 }}
         >
-          <span
-            className="text-[9px] tracking-[0.45em] text-blue-300/44"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            01
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span
+              className="text-[9px] tracking-[0.45em] text-blue-300/44"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              01
+            </span>
+            <span
+              className="text-[7px] tracking-[0.32em] text-blue-300/28"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              scroll.init
+            </span>
+          </div>
           <div className="relative h-12 w-px overflow-hidden rounded-full bg-blue-500/18">
             <motion.div
               className="absolute top-0 h-[45%] w-full rounded-full bg-gradient-to-b from-blue-300/55 to-transparent"

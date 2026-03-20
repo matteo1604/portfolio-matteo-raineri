@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
+import { gsap, useGSAP } from "../../utils/gsap";
 
 import { ArchiveFooter } from "./ArchiveFooter";
 import { ArchiveHeader } from "./ArchiveHeader";
@@ -21,6 +22,30 @@ export function BuildArchive() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<HTMLDivElement | null>(null);
+  const ghostNumRef = useRef<HTMLDivElement | null>(null);
+
+  // ── GSAP scroll parallax — ghost "04" drift ────────────────────────────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      if (ghostNumRef.current) {
+        gsap.to(ghostNumRef.current, {
+          y: -80,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 1.5,
+          },
+        });
+      }
+    },
+    [],
+    sectionRef,
+  );
 
   const [activeModuleId, setActiveModuleId] = useState(
     BUILD_ARCHIVE_MODULES[0]?.id ?? "",
@@ -76,6 +101,7 @@ export function BuildArchive() {
       />
 
       <div
+        ref={ghostNumRef}
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[-0.14em] right-[-0.04em] z-0 select-none text-[clamp(12rem,24vw,31rem)] font-extrabold leading-none tracking-[-0.05em] text-blue-300/[0.035]"
         style={{ fontFamily: "'Syne', sans-serif" }}

@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useInView } from "motion/react";
+import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 import {
   useCallback,
   useEffect,
@@ -6615,6 +6616,85 @@ export function Skills() {
   const orchestrationTimeoutRef = useRef<number | null>(null);
 
   const isInView = useInView(sectionRef, { once: true, margin: "-120px" });
+
+  // ── GSAP pinned entrance — terminal boot materializes on scroll ──────────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isDesktop) return;
+
+      const shell = shellRef.current;
+      if (!shell) return;
+
+      // Set initial state for the shell
+      gsap.set(shell, { scale: 0.93, opacity: 0, filter: "blur(10px)" });
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: "+=60%",
+          pin: true,
+          scrub: 1.0,
+          anticipatePin: 1,
+          refreshPriority: -1,
+          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+        },
+      });
+
+      // 0.20→0.45: Shell materializes from blur
+      tl.to(shell, {
+        scale: 1,
+        opacity: 1,
+        filter: "blur(0px)",
+        ease: "power4.out",
+        duration: 0.25,
+      }, 0.20);
+    },
+    [],
+    sectionRef,
+  );
+
+  // ── GSAP scroll parallax — ghost "03" drift + section exit ──────────────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      if (ghostNumRef.current) {
+        gsap.to(ghostNumRef.current, {
+          y: -80,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 1.5,
+          },
+        });
+      }
+
+      if (eyebrowRef.current) {
+        gsap.to(eyebrowRef.current, {
+          y: -40,
+          opacity: 0,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "60% top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
+      }
+    },
+    [],
+    sectionRef,
+  );
 
   useEffect(() => {
     const id = "skills-engine-styles";

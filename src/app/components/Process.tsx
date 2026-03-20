@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 
 type ExecutionMetric = {
   label: string;
@@ -61,7 +62,7 @@ interface ExecutionNodeProps {
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const DISPLAY_FONT = "'Syne', sans-serif";
 const MONO_FONT = "'DM Mono', monospace";
-const RAIL_NODE_POSITIONS = ["16.666%", "50%", "83.333%"] as const;
+const RAIL_NODE_POSITIONS = ["25%", "50%", "75%"] as const;
 
 const EXECUTION_PHASES: ExecutionPhase[] = [
   {
@@ -490,6 +491,16 @@ export function Process() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const supportRef = useRef<HTMLDivElement | null>(null);
   const futureLayerRef = useRef<HTMLDivElement | null>(null);
+  const ghostNumRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Progress bar refs — updated directly, bypassing React state ──
+  const mainBarRef = useRef<HTMLDivElement | null>(null);
+  const futureBarRef = useRef<HTMLDivElement | null>(null);
+  const lastPhaseIndexRef = useRef(0);
+
+  // ── Hover-gated wheel control refs ──
+  const progressRef = useRef(0);
+  const isHoveringRef = useRef(false);
 
   const isInView = useInView(sectionRef, { once: true, margin: "-120px" });
   const [hoveredPhaseId, setHoveredPhaseId] = useState<ExecutionPhase["id"] | null>(null);
@@ -522,23 +533,207 @@ export function Process() {
     return () => mediaQuery.removeListener(updateHoverCapability);
   }, []);
 
+  // Track whether user recently clicked a phase — suppresses scroll scrub briefly
+  const scrollLockRef = useRef(false);
+  const scrollLockTimerRef = useRef<number | null>(null);
+
+  // ── Helper: apply progress to bars + phase state ──
+  const applyProgress = (progress: number) => {
+    const pct = `${(progress * 100).toFixed(2)}%`;
+    if (mainBarRef.current) mainBarRef.current.style.width = pct;
+    if (futureBarRef.current) futureBarRef.current.style.width = pct;
+
+    const segmentCount = EXECUTION_PHASES.length;
+    const phaseIndex = Math.min(
+      Math.floor(progress * segmentCount),
+      segmentCount - 1,
+    );
+    if (phaseIndex !== lastPhaseIndexRef.current) {
+      lastPhaseIndexRef.current = phaseIndex;
+      const segmentSize = 1 / segmentCount;
+      const midpoint = phaseIndex * segmentSize + segmentSize / 2;
+      setPhaseProgress(midpoint);
+    }
+  };
+
+  // ── GSAP pinned entrance — cascade dominoes ─────────────────────────────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isDesktop) return;
+
+      // Set initial states
+      if (headerRef.current)  gsap.set(headerRef.current,  { opacity: 0, y: 24 });
+      if (ghostNumRef.current) gsap.set(ghostNumRef.current, { opacity: 0 });
+      if (shellRef.current)   gsap.set(shellRef.current,   { opacity: 0 });
+
+      // Execution nodes — query within section scope
+      const nodes = Array.from(section.querySelectorAll("[data-execution-node]")) as HTMLElement[];
+      gsap.set(nodes, { x: 80, opacity: 0, filter: "blur(6px)" });
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: "+=50%",
+          pin: true,
+          scrub: 1.0,
+          anticipatePin: 1,
+          refreshPriority: -1,
+          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+        },
+      });
+
+      // 0→0.25: header + ghost "05" appear
+      tl.to(headerRef.current,  { opacity: 1, y: 0, ease: "power4.out", duration: 0.20 }, 0)
+        .to(ghostNumRef.current, { opacity: 1, ease: "none", duration: 0.20 }, 0.05);
+
+      // 0.25→0.70: nodes cascade in from right
+      nodes.forEach((node, i) => {
+        const startAt = 0.25 + i * 0.10;
+        tl.to(node, {
+          x: 0,
+          opacity: 1,
+          filter: "blur(0px)",
+          ease: "power4.out",
+          duration: 0.18,
+        }, startAt);
+      });
+
+      // 0.70→1.0: shell/panel materializes
+      tl.to(shellRef.current, { opacity: 1, ease: "power2.out", duration: 0.25 }, 0.70);
+    },
+    [],
+    sectionRef,
+  );
+
+  // ── GSAP scroll orchestration — ghost parallax + mobile scrub ─────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+
+      // Ghost "05" parallax — natural scroll range (no pin)
+      if (ghostNumRef.current) {
+        gsap.to(ghostNumRef.current, {
+          y: -80,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 1.5,
+          },
+        });
+      }
+
+      if (!isDesktop) {
+        // ── Mobile: simple scroll scrub (no pin, no wheel interception) ──
+        gsap.to(
+          {},
+          {
+            scrollTrigger: {
+              trigger: section,
+              start: "top 60%",
+              end: "bottom 40%",
+              scrub: 0.6,
+              onUpdate: (self) => {
+                if (scrollLockRef.current) return;
+                progressRef.current = self.progress;
+                applyProgress(self.progress);
+              },
+            },
+          },
+        );
+      }
+    },
+    [],
+    sectionRef,
+  );
+
+  // ── Desktop: hover-gated wheel control on the progression lane ─────
+  // The progression line responds to wheel events ONLY when the mouse
+  // hovers over the progress bar area (laneRef). Anywhere else on the
+  // page — including the rest of the Process section — scrolls normally.
+  // At boundaries (progress ≤ 0 scrolling up, progress ≥ 1 scrolling
+  // down), wheel events pass through so the user can scroll away.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+    if (!isDesktop) return;
+
+    const lane = laneRef.current;
+    if (!lane) return;
+
+    // Total virtual scroll distance to traverse all 4 phases
+    const SCROLL_RANGE = window.innerHeight * 1.5;
+
+    const onMouseEnter = () => { isHoveringRef.current = true; };
+    const onMouseLeave = () => { isHoveringRef.current = false; };
+
+    const onWheel = (e: WheelEvent) => {
+      if (!isHoveringRef.current) return;
+      if (scrollLockRef.current) return;
+
+      const current = progressRef.current;
+      // At boundaries, let the page scroll naturally
+      if (current <= 0 && e.deltaY < 0) return;
+      if (current >= 1 && e.deltaY > 0) return;
+
+      e.preventDefault();
+
+      // Clamp deltaY to prevent momentum overshoot
+      const clampedDelta = Math.max(-120, Math.min(120, e.deltaY));
+      const next = Math.max(0, Math.min(1, current + clampedDelta / SCROLL_RANGE));
+      progressRef.current = next;
+      applyProgress(next);
+    };
+
+    lane.addEventListener("mouseenter", onMouseEnter);
+    lane.addEventListener("mouseleave", onMouseLeave);
+    lane.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      lane.removeEventListener("mouseenter", onMouseEnter);
+      lane.removeEventListener("mouseleave", onMouseLeave);
+      lane.removeEventListener("wheel", onWheel);
+    };
+  }, []);
+
   const activeScrollSegment = resolvePhaseSegmentFromProgress(phaseProgress);
   const resolvedActiveIndex = activeScrollSegment.index;
   const activePhase = EXECUTION_PHASES[resolvedActiveIndex];
   const phaseProgressValue = clampExecutionProgress(phaseProgress);
   const phaseProgressAttr = phaseProgressValue.toFixed(3);
-  const connectorProgress =
-    EXECUTION_PHASES.length > 1
-      ? `${(resolvedActiveIndex / (EXECUTION_PHASES.length - 1)) * 100}%`
-      : "0%";
-
   const setExecutionPhaseProgress = (nextProgress: number) => {
     setPhaseProgress(clampExecutionProgress(nextProgress));
     setHoveredPhaseId(null);
   };
 
   const handlePhaseSelect = (phaseId: ExecutionPhase["id"]) => {
-    setExecutionPhaseProgress(getPhaseSegmentById(phaseId).midpoint);
+    // Lock scroll/wheel scrub briefly so the manual selection holds
+    scrollLockRef.current = true;
+    if (scrollLockTimerRef.current) clearTimeout(scrollLockTimerRef.current);
+    scrollLockTimerRef.current = window.setTimeout(() => {
+      scrollLockRef.current = false;
+    }, 1200);
+
+    const segment = getPhaseSegmentById(phaseId);
+    lastPhaseIndexRef.current = segment.index;
+    progressRef.current = segment.midpoint;
+    setExecutionPhaseProgress(segment.midpoint);
+
+    // Animate bars to the clicked phase's scroll midpoint position
+    const targetPct = `${(segment.midpoint * 100).toFixed(2)}%`;
+    const barTween = { duration: 0.5, ease: "power4.out", width: targetPct };
+    if (mainBarRef.current) gsap.to(mainBarRef.current, barTween);
+    if (futureBarRef.current) gsap.to(futureBarRef.current, barTween);
   };
 
   const handlePhaseHoverStart = (phaseId: ExecutionPhase["id"]) => {
@@ -595,6 +790,7 @@ export function Process() {
         className="pointer-events-none absolute bottom-[-10%] right-[2%] h-[22rem] w-[28rem] rounded-full bg-sky-400/[0.05] blur-[130px]"
       />
       <div
+        ref={ghostNumRef}
         aria-hidden="true"
         className="pointer-events-none absolute bottom-[-0.14em] right-[-0.04em] z-0 select-none text-[clamp(12rem,24vw,32rem)] font-extrabold leading-none tracking-[-0.05em] text-blue-300/[0.03]"
         style={{ fontFamily: DISPLAY_FONT }}
@@ -875,13 +1071,15 @@ export function Process() {
                     }}
                   />
                   <div
+                    ref={mainBarRef}
                     data-execution-progress=""
                     data-phase-progress={phaseProgressAttr}
                     className="absolute left-0 top-0 h-full"
                     style={{
-                      width: connectorProgress,
+                      width: 0,
                       background: `linear-gradient(90deg, ${activePhase.accent.line}, rgba(255,255,255,0.14))`,
                       boxShadow: `0 0 16px ${activePhase.accent.glow}, 0 0 28px ${activePhase.accent.glow}`,
+                      transition: "background 0.4s ease, box-shadow 0.4s ease",
                     }}
                   />
                 </div>
@@ -905,6 +1103,7 @@ export function Process() {
                           index <= resolvedActiveIndex - 1
                             ? `0 0 12px ${activePhase.accent.glow}`
                             : "0 0 0 3px rgba(255,255,255,0.02)",
+                        transition: "background 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease",
                       }}
                     />
                   ))}
@@ -928,13 +1127,13 @@ export function Process() {
             </div>
 
             <div className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="popLayout">
                 <motion.div
                   key={activePhase.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                  transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                   className="grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(20rem,24rem)]"
                 >
                   <section
@@ -1414,30 +1613,58 @@ export function Process() {
           />
 
           <div className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+            <div className="flex items-center gap-4 min-w-0">
               <p
-                className="text-[10px] uppercase tracking-[0.3em] text-white/24"
+                className="text-[10px] uppercase tracking-[0.3em] text-white/24 shrink-0"
                 style={{ fontFamily: MONO_FONT }}
               >
-                future animation support
+                execution progress
               </p>
-              <p
-                className="mt-2 max-w-[46rem] text-[0.82rem] leading-relaxed text-white/34"
-                style={{ fontFamily: MONO_FONT }}
-              >
-                Reserved strip for pinned scroll state, connector scrub,
-                execution diagnostics, and staged phase activation when GSAP
-                choreography is attached later.
-              </p>
+
+              {/* ── Scroll progress bar ─────────────────────────────────── */}
+              <div className="hidden lg:flex items-center gap-3 flex-1 min-w-0 max-w-[28rem]">
+                <div className="relative h-px flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+                  <div
+                    ref={futureBarRef}
+                    className="absolute inset-y-0 left-0"
+                    style={{
+                      width: 0,
+                      background: `linear-gradient(90deg, ${activePhase.accent.line}, rgba(255,255,255,0.14))`,
+                      boxShadow: `0 0 12px ${activePhase.accent.glow}`,
+                      transition: "background 0.4s ease",
+                    }}
+                  />
+                </div>
+                <span
+                  className="text-[10px] uppercase tracking-[0.22em] shrink-0"
+                  style={{
+                    fontFamily: MONO_FONT,
+                    color: activePhase.accent.text,
+                  }}
+                >
+                  {activePhase.index}/04
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2.5">
-              {["pin-ready", "progress-ready", "phase diagnostics reserved"].map(
+              {["pinned", "scroll-driven", "phase " + activePhase.index].map(
                 (item) => (
                   <span
                     key={item}
-                    className="rounded-full border border-white/[0.06] bg-white/[0.01] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/28"
-                    style={{ fontFamily: MONO_FONT }}
+                    className="rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.22em]"
+                    style={{
+                      fontFamily: MONO_FONT,
+                      borderColor: item.includes("phase")
+                        ? activePhase.accent.line
+                        : "rgba(255,255,255,0.06)",
+                      color: item.includes("phase")
+                        ? activePhase.accent.text
+                        : "rgba(255,255,255,0.28)",
+                      background: item.includes("phase")
+                        ? activePhase.accent.surface
+                        : "rgba(255,255,255,0.01)",
+                    }}
                   >
                     {item}
                   </span>

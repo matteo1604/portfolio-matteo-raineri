@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Philosophy — manifesto layout
@@ -28,18 +29,18 @@ import { useLayoutEffect, useRef, useState } from "react";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MANIFESTO =
-  "Interfaces should be fast enough to disappear and precise enough to be trusted.";
+  "Fast enough to disappear. Precise enough to be trusted. The rest is decoration.";
 
 const PRINCIPLES = [
   {
     index: "01",
     name: "Performance",
     descriptor:
-      "Speed is felt before it's measured.\nA slow interface doesn't just frustrate — it breaks trust.",
+      "Speed is felt before it's measured.\nEverything else is a metric.",
   },
   {
     index: "02",
-    name: "Elegance",
+    name: "Reduction",
     descriptor:
       "Reduction is the hardest discipline —\nwhat stays must earn its place.",
   },
@@ -171,13 +172,10 @@ function PrincipleRow({
   }, [name]);
 
   return (
-    <motion.div
+    <div
       ref={rowRef}
       data-philosophy={dataAttr}
       className="grid gap-y-4 py-[clamp(2.8rem,4vw,4.5rem)] lg:grid-cols-[var(--ph-index-col)_minmax(0,1fr)_minmax(17rem,20rem)] lg:items-end lg:gap-x-[var(--ph-gap)] lg:gap-y-0 xl:grid-cols-[var(--ph-index-col)_minmax(0,1fr)_minmax(19rem,22rem)] 2xl:grid-cols-[var(--ph-index-col)_minmax(0,1fr)_minmax(20rem,24rem)]"
-      initial={{ opacity: 0, y: 40, filter: "blur(8px)" }}
-      animate={isInView ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
-      transition={{ duration: 1.1, delay, ease: EXPO }}
       onMouseEnter={() => onActivate(rowIndex)}
       onMouseLeave={onDeactivate}
     >
@@ -246,7 +244,7 @@ function PrincipleRow({
       <motion.p
         className="relative z-10 max-w-[34rem] leading-relaxed whitespace-pre-line lg:col-start-3 lg:row-start-1 lg:max-w-none lg:min-w-[17rem] lg:justify-self-end lg:pl-3 lg:text-right lg:pb-3 xl:min-w-[19rem] xl:pl-4 2xl:min-w-[20rem]"
         animate={{
-          opacity: isDimmed ? 0.18 : isActive ? 0.74 : 0.46,
+          opacity: isDimmed ? 0.18 : isActive ? 0.74 : 0.54,
           y: isActive ? -2 : hasActiveRow ? 6 : 0,
           filter: isDimmed ? "blur(1px)" : "blur(0px)",
           clipPath: isActive
@@ -266,7 +264,7 @@ function PrincipleRow({
       >
         {descriptor}
       </motion.p>
-    </motion.div>
+    </div>
   );
 }
 
@@ -292,6 +290,172 @@ export function Philosophy() {
     useRef<HTMLDivElement>(null), // after  row 1
     useRef<HTMLDivElement>(null), // after  row 2
   ] as const;
+
+  // ── GSAP pinned entrance — word slam ─────────────────────────────────────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isDesktop) return;
+
+      // Set initial states — rows are hidden until the pin timeline reveals them
+      const rows = rowRefs.map((r) => r.current).filter(Boolean) as HTMLDivElement[];
+      const seps = separatorRefs.map((r) => r.current).filter(Boolean) as HTMLDivElement[];
+
+      gsap.set(rows, { opacity: 0, y: 80 });
+      gsap.set(seps, { scaleX: 0, transformOrigin: "left center" });
+      if (eyebrowRef.current)  gsap.set(eyebrowRef.current,  { opacity: 0, y: 16 });
+      if (manifestoRef.current) gsap.set(manifestoRef.current, { opacity: 0, y: 12 });
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: "+=80%",
+          pin: true,
+          scrub: 1.0,
+          anticipatePin: 1,
+          refreshPriority: -1,
+          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+        },
+      });
+
+      // 0→0.15: eyebrow + manifesto fade in
+      tl.to(eyebrowRef.current,  { opacity: 1, y: 0, ease: "power4.out", duration: 0.15 }, 0)
+        .to(manifestoRef.current, { opacity: 1, y: 0, ease: "power4.out", duration: 0.15 }, 0);
+
+      // 0.15→0.25: top separator draws
+      tl.to(seps[0], { scaleX: 1, ease: "none", duration: 0.10 }, 0.15);
+
+      // 0.25→0.85: rows slam in with stagger
+      rows.forEach((row, i) => {
+        const startAt = 0.25 + i * 0.20;
+        tl.to(row, { opacity: 1, y: 0, ease: "power4.out", duration: 0.18 }, startAt);
+        // Separator below this row draws simultaneously
+        if (seps[i + 1]) {
+          tl.to(seps[i + 1], { scaleX: 1, ease: "none", duration: 0.12 }, startAt + 0.06);
+        }
+      });
+    },
+    [],
+    sectionRef,
+  );
+
+  // ── GSAP scroll orchestration ────────────────────────────────────────────
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      // ── Ghost "02" parallax — slow upward drift through section scroll ──
+      if (ghostNumRef.current) {
+        gsap.to(ghostNumRef.current, {
+          y: -80,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 1.5,
+          },
+        });
+      }
+
+      // ── Exit drift — eyebrow and manifesto fade at section bottom ──────
+      if (eyebrowRef.current) {
+        gsap.to(eyebrowRef.current, {
+          y: -40,
+          opacity: 0,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "60% top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
+      }
+
+      if (manifestoRef.current) {
+        gsap.to(manifestoRef.current, {
+          y: -30,
+          opacity: 0,
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "60% top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
+      }
+
+      // ── Hero → Philosophy cinematic handoff ────────────────────────────
+      // Ghost "02" begins its entrance while Hero is still partially visible,
+      // creating an overlap that makes the two sections feel connected.
+      const heroSection = document.getElementById("hero");
+      if (heroSection && ghostNumRef.current) {
+        // Early ghost reveal — starts when Hero is ~60% scrolled out
+        gsap.fromTo(
+          ghostNumRef.current,
+          { scale: 1.08, filter: "blur(8px)" },
+          {
+            scale: 1,
+            filter: "blur(0px)",
+            ease: "none",
+            scrollTrigger: {
+              trigger: heroSection,
+              start: "60% top",
+              end: "bottom top",
+              scrub: 1.2,
+            },
+          },
+        );
+      }
+
+      // Principle rows get a subtle upward drift on entrance from scroll
+      rowRefs.forEach((rowRef, i) => {
+        if (rowRef.current) {
+          gsap.fromTo(
+            rowRef.current,
+            { y: 30 + i * 10 },
+            {
+              y: 0,
+              ease: "none",
+              scrollTrigger: {
+                trigger: rowRef.current,
+                start: "top 90%",
+                end: "top 60%",
+                scrub: 0.8,
+              },
+            },
+          );
+        }
+      });
+
+      // ── Manifesto activates when "Reduction" (row 1) enters viewport center ──
+      // The manifesto brightens and shifts to blue-white as the middle principle
+      // enters focus — connecting the framing sentence to the principle of reduction.
+      if (manifestoRef.current && rowRefs[1].current) {
+        gsap.to(manifestoRef.current, {
+          color: "rgba(186,230,253,0.72)",
+          letterSpacing: "-0.005em",
+          ease: "none",
+          scrollTrigger: {
+            trigger: rowRefs[1].current,
+            start: "top center",
+            end: "bottom center",
+            scrub: 1.2,
+          },
+        });
+      }
+    },
+    [],
+    sectionRef,
+  );
 
   const activeGhost = activeIndex === null ? "02" : PRINCIPLES[activeIndex].index;
   const hasActiveRow = activeIndex !== null;
@@ -362,8 +526,8 @@ export function Philosophy() {
               filter: "blur(0px)",
               scale: 1,
               color: hasActiveRow
-                ? "rgba(125, 211, 252, 0.085)"
-                : "rgba(96, 165, 250, 0.052)",
+                ? "rgba(125, 211, 252, 0.15)"
+                : "rgba(96, 165, 250, 0.085)",
             }}
             exit={{ opacity: 0, y: -18, filter: "blur(8px)", scale: 1.03 }}
             transition={{ duration: 0.6, ease: EXPO }}
@@ -405,7 +569,7 @@ export function Philosophy() {
           style={{
             fontFamily:    "'DM Mono', monospace",
             fontSize:      "clamp(0.80rem, 1.2vw, 0.92rem)",
-            color:         "rgba(255,255,255,0.38)",
+            color:         "rgba(255,255,255,0.60)",
             letterSpacing: "0.01em",
           }}
           initial={{ opacity: 0, y: 14 }}
@@ -482,6 +646,23 @@ export function Philosophy() {
             />
           </div>
         ))}
+
+        {/* ── Forward pull — signals the scroll journey continues into Skills ── */}
+        <motion.div
+          aria-hidden="true"
+          className="mt-14 flex items-center justify-end gap-3"
+          initial={{ opacity: 0 }}
+          animate={isInView ? { opacity: 1 } : {}}
+          transition={{ duration: 0.9, delay: 1.1, ease: EXPO }}
+        >
+          <span
+            className="text-[10px] uppercase tracking-[0.42em] text-blue-300/38"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            03 — Skills
+          </span>
+          <div className="h-px w-8 bg-blue-400/38" />
+        </motion.div>
 
       </div>
     </section>
