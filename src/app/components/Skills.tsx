@@ -5291,7 +5291,7 @@ function DemoPanel({
     : null;
 
   return (
-    <div className="flex h-full flex-col" data-skills="stage">
+    <div className="flex h-full flex-col" data-skills="stage" data-cursor-interactive>
       <div className="mb-5 min-h-[7rem]">
         <AnimatePresence mode="wait">
           {developerModeArmed ? (
@@ -6115,6 +6115,7 @@ function Terminal({
     <motion.div
       ref={terminalRef}
       data-skills="terminal"
+      data-cursor-interactive
       className="w-full overflow-hidden rounded-[24px] border"
       style={{
         background:

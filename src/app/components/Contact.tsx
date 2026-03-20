@@ -121,7 +121,7 @@ export function Contact() {
         />
 
         {/* Body + CTA */}
-        <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-end lg:gap-16">
+        <div data-cursor-interactive className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-end lg:gap-16">
           <motion.div
             className="max-w-[38rem] space-y-8"
             initial={{ opacity: 0, y: 22 }}

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
-      "Bash(node_modules/.bin/vite build:*)"
+      "Bash(node_modules/.bin/vite build:*)",
+      "Bash(node_modules/.bin/tsc --noEmit 2>&1)"
     ]
   },
   "model": "claude-opus-4-6"

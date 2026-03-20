@@ -17,6 +17,7 @@ export function ArchiveRail({
     <nav
       data-archive="rail"
       data-build-rail=""
+      data-cursor-interactive
       aria-label="Build archive modules"
       className="relative border-b border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.016)_0%,rgba(255,255,255,0.008)_100%)] px-3 py-3 lg:min-h-[48rem] lg:border-b-0 lg:px-3 lg:py-4"
     >

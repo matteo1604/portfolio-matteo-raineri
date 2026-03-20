@@ -7,10 +7,31 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Hide default cursor on desktop for custom cursor */
+/* Hide default cursor on desktop for custom cursor — except interactive zones */
 @media (min-width: 1024px) {
   * {
     cursor: none !important;
+  }
+
+  /* Restore native cursor in explicitly marked interactive zones */
+  [data-cursor-interactive],
+  [data-cursor-interactive] * {
+    cursor: auto !important;
+  }
+
+  [data-cursor-interactive] a,
+  [data-cursor-interactive] button,
+  [data-cursor-interactive] [role="button"],
+  [data-cursor-interactive] input,
+  [data-cursor-interactive] textarea,
+  [data-cursor-interactive] select,
+  [data-cursor-interactive] label[for] {
+    cursor: pointer !important;
+  }
+
+  [data-cursor-interactive] input[type="text"],
+  [data-cursor-interactive] textarea {
+    cursor: text !important;
   }
 }
 

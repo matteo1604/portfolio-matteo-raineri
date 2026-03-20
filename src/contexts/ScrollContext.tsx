@@ -81,11 +81,11 @@ function createScrollStore() {
       // Round progress values to 3 decimal places to cap notification frequency
       globalProgress:
         next.globalProgress !== undefined
-          ? Math.round(next.globalProgress * 1000) / 1000
+          ? Math.round(next.globalProgress * 100) / 100
           : state.globalProgress,
       sectionProgress:
         next.sectionProgress !== undefined
-          ? Math.round(next.sectionProgress * 1000) / 1000
+          ? Math.round(next.sectionProgress * 100) / 100
           : state.sectionProgress,
     };
 

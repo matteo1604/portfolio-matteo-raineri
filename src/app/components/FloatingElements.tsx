@@ -41,8 +41,8 @@ function createParticles(w: number, h: number, rgb: RGB, isMobile: boolean): Par
   const out: Particle[] = [];
 
   if (!isMobile) {
-    // Jitter-grid base: 30×20 = 600 cells
-    const cols = 30, rows = 20;
+    // Jitter-grid base: 20×15 = 300 cells
+    const cols = 20, rows = 15;
     const cellW = w / cols;
     const cellH = h / rows;
     for (let row = 0; row < rows; row++) {
@@ -58,12 +58,12 @@ function createParticles(w: number, h: number, rgb: RGB, isMobile: boolean): Par
           transProgress: 1, transDelay: 0,
           parallaxRate: 0.2 + Math.random() * 0.8,
           phase: Math.random() * Math.PI * 2,
-          isLarge: radius > 1.2,
+          isLarge: radius > 1.5,
         });
       }
     }
-    // Additional 400 purely random particles
-    for (let i = 0; i < 400; i++) {
+    // Additional 300 purely random particles — 600 total
+    for (let i = 0; i < 300; i++) {
       const radius = 0.5 + Math.pow(Math.random(), 2.5) * 2;
       const baseX = Math.random() * w;
       const baseY = Math.random() * h;
@@ -75,11 +75,11 @@ function createParticles(w: number, h: number, rgb: RGB, isMobile: boolean): Par
         transProgress: 1, transDelay: 0,
         parallaxRate: 0.2 + Math.random() * 0.8,
         phase: Math.random() * Math.PI * 2,
-        isLarge: radius > 1.2,
+        isLarge: radius > 1.5,
       });
     }
   } else {
-    for (let i = 0; i < 400; i++) {
+    for (let i = 0; i < 300; i++) {
       const radius = 0.5 + Math.pow(Math.random(), 2.5) * 2;
       const baseX = Math.random() * w;
       const baseY = Math.random() * h;
@@ -91,7 +91,7 @@ function createParticles(w: number, h: number, rgb: RGB, isMobile: boolean): Par
         transProgress: 1, transDelay: 0,
         parallaxRate: 0.2 + Math.random() * 0.8,
         phase: Math.random() * Math.PI * 2,
-        isLarge: radius > 1.2,
+        isLarge: radius > 1.5,
       });
     }
   }

@@ -37,8 +37,8 @@ function subscribe(listener: Listener): () => void {
 function commit(next: VelocityState) {
   const candidate: VelocityState = {
     ...next,
-    velocity: Math.round(next.velocity * 1000) / 1000,
-    intensity: Math.round(next.intensity * 1000) / 1000,
+    velocity: Math.round(next.velocity * 100) / 100,
+    intensity: Math.round(next.intensity * 100) / 100,
   };
   if (
     candidate.velocity !== state.velocity ||

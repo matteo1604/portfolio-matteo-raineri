@@ -10,6 +10,7 @@ import { useScrollState, SECTION_ACCENTS, type SectionId } from "../../contexts/
 //   - Magnetic field pulling [data-magnetic] elements toward cursor
 //   - Section-aware ring color morphing via ScrollContext
 //   - Click ripple expansion
+//   - Auto-hide when entering [data-cursor-interactive] zones
 //
 // Gated behind (min-width: 1024px) and (pointer: fine).
 
@@ -28,6 +29,7 @@ export function CustomCursor() {
   const dotRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const inInteractiveZoneRef = useRef(false);
 
   const [active, setActive] = useState(false);
 
@@ -84,10 +86,32 @@ export function CustomCursor() {
     const handleMouseMove = (e: MouseEvent) => {
       const { clientX: x, clientY: y } = e;
 
+      // Check if entering/leaving an interactive zone
+      const interactiveZone = (e.target as HTMLElement).closest("[data-cursor-interactive]");
+      const wasInZone = inInteractiveZoneRef.current;
+      const isInZone = !!interactiveZone;
+
+      if (isInZone !== wasInZone) {
+        inInteractiveZoneRef.current = isInZone;
+        if (isInZone) {
+          gsap.to(dot,  { opacity: 0, duration: 0.2, overwrite: "auto" });
+          gsap.to(ring, { opacity: 0, duration: 0.2, overwrite: "auto" });
+          trailRefs.current.forEach((el) => {
+            if (el) gsap.to(el, { opacity: 0, duration: 0.15, overwrite: "auto" });
+          });
+        } else {
+          gsap.to(dot,  { opacity: 1, duration: 0.15, overwrite: "auto" });
+          gsap.to(ring, { opacity: 1, duration: 0.15, overwrite: "auto" });
+          trailRefs.current.forEach((el, i) => {
+            if (el) gsap.to(el, { opacity: 0.28 - i * 0.042, duration: 0.15, overwrite: "auto" });
+          });
+        }
+      }
+
       // Dot — tight follow
       gsap.to(dot, {
-        x: x - 3,
-        y: y - 3,
+        x: x - 4,
+        y: y - 4,
         duration: 0.08,
         ease: "none",
         overwrite: "auto",
@@ -115,44 +139,46 @@ export function CustomCursor() {
         });
       });
 
-      // ── Magnetic pull ────────────────────────────────────────────────────
-      magneticEls.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        const centerY = rect.top + rect.height / 2;
-        if (Math.abs(y - centerY) > 250) {
-          gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "power2.out", overwrite: "auto" });
-          return;
-        }
-        const centerX = rect.left + rect.width / 2;
-        const dx = x - centerX;
-        const dy = y - centerY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const magnetRadius = 120;
+      // ── Magnetic pull — skip inside interactive zones ─────────────────────
+      if (!isInZone) {
+        magneticEls.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const centerY = rect.top + rect.height / 2;
+          if (Math.abs(y - centerY) > 250) {
+            gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "power2.out", overwrite: "auto" });
+            return;
+          }
+          const centerX = rect.left + rect.width / 2;
+          const dx = x - centerX;
+          const dy = y - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const magnetRadius = 120;
 
-        if (dist < magnetRadius) {
-          const pull = (1 - dist / magnetRadius) * 0.35;
-          gsap.to(el, {
-            x: dx * pull,
-            y: dy * pull,
-            duration: 0.4,
-            ease: "power3.out",
-            overwrite: "auto",
-          });
-        } else {
-          gsap.to(el, {
-            x: 0,
-            y: 0,
-            duration: 0.7,
-            ease: "elastic.out(1, 0.4)",
-            overwrite: "auto",
-          });
-        }
-      });
+          if (dist < magnetRadius) {
+            const pull = (1 - dist / magnetRadius) * 0.35;
+            gsap.to(el, {
+              x: dx * pull,
+              y: dy * pull,
+              duration: 0.4,
+              ease: "power3.out",
+              overwrite: "auto",
+            });
+          } else {
+            gsap.to(el, {
+              x: 0,
+              y: 0,
+              duration: 0.7,
+              ease: "elastic.out(1, 0.4)",
+              overwrite: "auto",
+            });
+          }
+        });
+      }
     };
 
     // ── Click ripple ──────────────────────────────────────────────────────
     const handleMouseDown = () => {
-      if (!ring) return;
+      if (!ring || inInteractiveZoneRef.current) return;
       gsap.fromTo(
         ring,
         { scale: 1, opacity: 1 },
@@ -175,6 +201,7 @@ export function CustomCursor() {
 
     // ── Hover state — scale ring on interactive elements ─────────────────
     const handleMouseOver = (e: MouseEvent) => {
+      if (inInteractiveZoneRef.current) return;
       const target = e.target as HTMLElement;
       const isInteractive =
         target.tagName === "A" ||
@@ -241,8 +268,8 @@ export function CustomCursor() {
         aria-hidden="true"
         className="fixed pointer-events-none z-[9999] rounded-full bg-white/90 mix-blend-screen"
         style={{
-          width: 6,
-          height: 6,
+          width: 8,
+          height: 8,
           top: 0,
           left: 0,
           transform: "translate(-500px, -500px)",

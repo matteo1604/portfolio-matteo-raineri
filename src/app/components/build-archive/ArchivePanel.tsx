@@ -13,6 +13,7 @@ export function ArchivePanel({ module }: ArchivePanelProps) {
       data-archive="panel"
       data-build-panel=""
       data-build-active=""
+      data-cursor-interactive
       data-module-id={module.id}
       className="relative overflow-hidden border-b border-white/8 px-5 py-5 sm:px-6 lg:px-8 lg:py-8"
     >
