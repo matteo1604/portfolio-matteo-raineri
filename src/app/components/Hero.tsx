@@ -431,7 +431,14 @@ export function Hero() {
       if (raineriWrapRef.current) {
         intro.to(raineriWrapRef.current, {
           clipPath: "inset(0 0% 0 0)", duration: 1.0, ease: "power4.out",
-          onComplete: () => setRaineriRevealed(true),
+          onComplete: () => {
+            // Force clipPath removal so no residual clipping exists
+            // (text-stroke extends beyond layout box on rightmost letter)
+            if (raineriWrapRef.current) {
+              raineriWrapRef.current.style.clipPath = "none";
+            }
+            setRaineriRevealed(true);
+          },
         }, 0.55);
       }
 
@@ -534,9 +541,38 @@ export function Hero() {
           onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
           onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
           onUpdate: (self) => {
-            // When scrub returns to zero, clear GSAP inline styles so
-            // CSS float animations can resume on code panels
-            if (self.progress < 0.005 && self.direction === -1) {
+            // When timeline scrubs back to the dead zone (progress < 0.05),
+            // force-restore all elements to their entrance-complete state
+            if (self.progress < 0.05 && self.direction === -1) {
+              // Letters
+              letterEls.forEach((el) => {
+                gsap.set(el, { x: 0, y: 0, rotation: 0, opacity: 1, filter: "blur(0px)", clearProps: "transform" });
+              });
+              // Raineri
+              if (raineriWrapRef.current) {
+                gsap.set(raineriWrapRef.current, { x: 0, opacity: 1, clearProps: "clipPath" });
+                raineriWrapRef.current.style.clipPath = "none";
+              }
+              // Separator
+              if (separatorRef.current) {
+                gsap.set(separatorRef.current, { scaleX: 1, opacity: 1, transformOrigin: "left center" });
+              }
+              // Ghost
+              if (ghostRef.current) {
+                gsap.set(ghostRef.current, { scale: 1, opacity: 1, filter: "blur(0px)" });
+              }
+              // Eyebrow
+              if (eyebrowRef.current) {
+                gsap.set(eyebrowRef.current, { y: 0, opacity: 1 });
+              }
+              // Subtitle & Counters
+              if (subtitleRef.current) {
+                gsap.set(subtitleRef.current, { y: 0, opacity: 1, filter: "blur(0px)" });
+              }
+              if (countersRef.current) {
+                gsap.set(countersRef.current, { y: 0, opacity: 1, filter: "blur(0px)" });
+              }
+              // Code panels — restore to entrance-complete opacity + clear transforms
               panelEls.forEach((el) => {
                 if (el) gsap.set(el, { clearProps: "x,y,rotation,filter,scale" });
               });
@@ -544,10 +580,14 @@ export function Hero() {
               if (codeRCRef.current) gsap.set(codeRCRef.current, { opacity: PANEL_OPACITIES.RC });
               if (codeBLRef.current) gsap.set(codeBLRef.current, { opacity: PANEL_OPACITIES.BL });
               if (codeBRRef.current) gsap.set(codeBRRef.current, { opacity: PANEL_OPACITIES.BR });
-
-              letterEls.forEach((el) => {
-                gsap.set(el, { x: 0, y: 0, rotation: 0, opacity: 1, filter: "blur(0px)" });
-              });
+              // Scroll indicator
+              if (scrollIndicatorRef.current) {
+                gsap.set(scrollIndicatorRef.current, { opacity: 1, y: 0 });
+              }
+              // Left orb
+              if (leftOrbRef.current) {
+                gsap.set(leftOrbRef.current, { scale: 1, opacity: 0.09, filter: "blur(120px)" });
+              }
             }
           },
         },
@@ -556,41 +596,41 @@ export function Hero() {
       // ── Dead zone: 0→0.10 — nothing animates ─────────────────────────
       tl.to({}, { duration: 0.10 });
 
-      // ── Phase 1: 0.10→0.20 — Breath ──────────────────────────────────
+      // ── Phase 1: 0.10→0.20 — Breath (power1.out for subtle deceleration) ──
       if (scrollIndicatorRef.current) {
-        tl.to(scrollIndicatorRef.current, { opacity: 0, y: -20, ease: "none", duration: 0.10 }, 0.10);
+        tl.to(scrollIndicatorRef.current, { opacity: 0, y: -20, ease: "power1.out", duration: 0.10 }, 0.10);
       }
       if (ghostRef.current) {
-        tl.to(ghostRef.current, { scale: 1.04, ease: "none", duration: 0.10 }, 0.10);
+        tl.to(ghostRef.current, { scale: 1.04, ease: "power1.out", duration: 0.10 }, 0.10);
       }
       panelEls.forEach((el) => {
-        if (el) tl.to(el, { y: -8, ease: "none", duration: 0.10 }, 0.10);
+        if (el) tl.to(el, { y: "-=8", ease: "power1.out", duration: 0.10 }, 0.10);
       });
 
-      // ── Phase 2: 0.20→0.50 — Departure ──────────────────────────────
+      // ── Phase 2: 0.20→0.50 — Departure (power2.in for outward acceleration) ──
       letterEls.forEach((el, i) => {
         const s = MATTEO_SCATTER[i] ?? { x: 0, y: 0, blur: 0, r: 0 };
         tl.to(el, {
           x: s.x, y: s.y, rotation: s.r, filter: `blur(${s.blur}px)`,
-          ease: "none", duration: 0.25,
+          ease: "power2.in", duration: 0.30,
         }, 0.20 + i * 0.012);
-        tl.to(el, { opacity: 0, ease: "none", duration: 0.10 }, 0.32 + i * 0.015);
+        tl.to(el, { opacity: 0, ease: "power2.in", duration: 0.10 }, 0.32 + i * 0.015);
       });
 
       if (raineriWrapRef.current) {
         tl.to(raineriWrapRef.current, {
           clipPath: "inset(0 0 0 100%)", x: -60, opacity: 0,
-          ease: "none", duration: 0.15,
+          ease: "power2.in", duration: 0.15,
         }, 0.28);
       }
 
       if (separatorRef.current) {
         tl.to(separatorRef.current, {
-          scaleX: 0, transformOrigin: "right center", ease: "none", duration: 0.15,
+          scaleX: 0, transformOrigin: "right center", ease: "power2.in", duration: 0.15,
         }, 0.24);
       }
 
-      // ── Phase 3: 0.50→0.75 — Disintegration ──────────────────────────
+      // ── Phase 3: 0.50→0.75 — Disintegration (power1.in for accelerating exit) ──
       const panelExits = [
         { el: codeTRRef.current,  x:  200, y: -180, r:  8, blur: 12 },
         { el: codeRCRef.current,  x:  260, y:  100, r: -5, blur: 10 },
@@ -601,21 +641,21 @@ export function Hero() {
         if (!el) return;
         tl.to(el, {
           x, y, rotation: r, opacity: 0, filter: `blur(${blur}px)`,
-          ease: "none", duration: 0.22,
+          ease: "power1.in", duration: 0.22,
         }, 0.50 + i * 0.025);
       });
 
       if (subtitleRef.current) {
-        tl.to(subtitleRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.18 }, 0.50);
+        tl.to(subtitleRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "power1.in", duration: 0.18 }, 0.50);
       }
       if (countersRef.current) {
-        tl.to(countersRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "none", duration: 0.18 }, 0.54);
+        tl.to(countersRef.current, { y: -100, opacity: 0, filter: "blur(8px)", ease: "power1.in", duration: 0.18 }, 0.54);
       }
       if (eyebrowRef.current) {
-        tl.to(eyebrowRef.current, { y: -40, opacity: 0, ease: "none", duration: 0.10 }, 0.55);
+        tl.to(eyebrowRef.current, { y: -40, opacity: 0, ease: "power1.in", duration: 0.10 }, 0.55);
       }
 
-      // ── Phase 4: 0.75→1.0 — Void ─────────────────────────────────────
+      // ── Phase 4: 0.75→1.0 — Void (linear dissolve) ─────────────────
       if (ghostRef.current) {
         tl.to(ghostRef.current, { scale: 1.15, opacity: 0, filter: "blur(20px)", ease: "none", duration: 0.25 }, 0.75);
       }
@@ -950,7 +990,7 @@ export function Hero() {
                 {/* "Raineri" — clip-path on wrapper, GSAP handles reveal + exit */}
                 <span
                   ref={raineriWrapRef}
-                  style={{ display: "block", clipPath: "inset(0 100% 0 0)" }}
+                  style={{ display: "block", clipPath: "inset(0 100% 0 0)", paddingRight: "0.05em" }}
                 >
                   <span
                     className={`hero-stroke${raineriRevealed ? " hero-stroke-live" : ""} block ml-[6%] text-[clamp(5.6rem,14.6vw,18.5rem)] leading-[0.8] tracking-[-0.06em]`}
