@@ -276,13 +276,15 @@ const COUNTER_DATA = [
 // Heavier letters (M, o) scatter less; lighter ones scatter more.
 // Direction: first letter up-left, last letter down-right, middles diverge.
 const MATTEO_SCATTER = [
-  { x: -80,  y: -40, blur: 2,   r: -5  },  // M — heavy, up-left
-  { x: -110, y: -55, blur: 3.5, r:  6  },  // a
-  { x:  130, y: -78, blur: 5,   r: -10 },  // t
-  { x: -158, y:  92, blur: 6.5, r:  13 },  // t
-  { x:  195, y:  72, blur: 8,   r: -8  },  // e
-  { x:  225, y: 130, blur: 9.5, r:  14 },  // o — down-right
+  { x: -110, y: -70,  blur: 2,   r: -8 },
+  { x: -40,  y: -95,  blur: 3.5, r:  4 },
+  { x:  20,  y: -80,  blur: 5,   r: -3 },
+  { x:  60,  y: -65,  blur: 6.5, r:  6 },
+  { x:  95,  y: -40,  blur: 8,   r: -5 },
+  { x:  130, y: -55,  blur: 9.5, r:  8 },
 ] as const;
+
+const LETTER_WEIGHTS = [0.6, 1.0, 0.9, 0.9, 1.0, 0.95] as const;
 
 export function Hero() {
   // ── GSAP refs — scope + per-element targets ─────────────────────────────
@@ -338,6 +340,10 @@ export function Hero() {
 
       const letterEls = letterRefs.current.filter(Boolean) as HTMLSpanElement[];
 
+      if (raineriWrapRef.current) {
+        gsap.set(raineriWrapRef.current, { clipPath: "inset(0% 0% 0% 0%)" });
+      }
+
       // ── Phase 1: 0→0.15 — Breath ─────────────────────────────────────
       if (scrollIndicatorRef.current) {
         tl.to(scrollIndicatorRef.current, { opacity: 0, y: -20, ease: "none", duration: 0.15 }, 0);
@@ -348,16 +354,28 @@ export function Hero() {
       });
 
       // ── Phase 2: 0.15→0.45 — Departure ──────────────────────────────
-      // Per-letter scatter
       letterEls.forEach((el, i) => {
         const s = MATTEO_SCATTER[i] ?? { x: 0, y: 0, blur: 0, r: 0 };
-        tl.to(el, { x: s.x, y: s.y, rotation: s.r, filter: `blur(${s.blur}px)`, ease: "none", duration: 0.25 }, 0.15)
-          .to(el, { opacity: 0, ease: "none", duration: 0.12 }, 0.26 + i * 0.018);
+        const w = LETTER_WEIGHTS[i] ?? 1;
+        tl.to(el, {
+          x: s.x * w,
+          y: s.y * w,
+          rotation: s.r * w,
+          opacity: 0,
+          filter: `blur(${s.blur}px)`,
+          ease: "power3.in",
+          duration: 0.28,
+        }, 0.15 + i * 0.015);
       });
 
-      // Raineri wrapper — translate + fade
       if (raineriWrapRef.current) {
-        tl.to(raineriWrapRef.current, { x: -60, opacity: 0, ease: "none", duration: 0.15 }, 0.25);
+        tl.to(raineriWrapRef.current, {
+          clipPath: "inset(0% 0% 0% 100%)",
+          filter: "blur(3px)",
+          letterSpacing: "0.08em",
+          ease: "none",
+          duration: 0.18,
+        }, 0.22);
       }
 
       // Separator — collapses from right

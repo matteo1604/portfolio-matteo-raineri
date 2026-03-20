@@ -37,3 +37,9 @@ html {
   background: rgba(59, 130, 246, 0.3);
   color: #ffffff;
 }
+
+/* Pin spacer reset — prevents GSAP pin wrappers from inheriting unwanted styles */
+.pin-spacer {
+  background: transparent !important;
+  border: none !important;
+}

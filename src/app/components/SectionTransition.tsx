@@ -100,6 +100,7 @@ export function SectionTransition({ from, to }: SectionTransitionProps) {
             start: "top bottom",
             end: "top 60%",
             scrub: 0.8,
+            invalidateOnRefresh: true,
           },
         },
       );
@@ -111,6 +112,7 @@ export function SectionTransition({ from, to }: SectionTransitionProps) {
           start: "bottom 40%",
           end: "bottom top",
           scrub: 0.8,
+          invalidateOnRefresh: true,
         },
       });
 
@@ -127,6 +129,7 @@ export function SectionTransition({ from, to }: SectionTransitionProps) {
               start: "top 80%",
               end: "bottom 20%",
               scrub: 1.2,
+              invalidateOnRefresh: true,
             },
           },
         );
@@ -146,6 +149,7 @@ export function SectionTransition({ from, to }: SectionTransitionProps) {
               start: "top 80%",
               end: "bottom 20%",
               scrub: 1,
+              invalidateOnRefresh: true,
             },
           },
         );
@@ -165,6 +169,7 @@ export function SectionTransition({ from, to }: SectionTransitionProps) {
               start: "top bottom",
               end: "bottom top",
               scrub: 1,
+              invalidateOnRefresh: true,
             },
           },
         );
@@ -187,6 +192,7 @@ export function SectionTransition({ from, to }: SectionTransitionProps) {
                 start: "top 85%",
                 end: "bottom 15%",
                 scrub: 1,
+                invalidateOnRefresh: true,
               },
             },
           );

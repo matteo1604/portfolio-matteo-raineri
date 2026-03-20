@@ -56,6 +56,7 @@ export function SectionBleed({ from, to }: SectionBleedProps) {
             start: "top bottom",
             end: "center center",
             scrub: 1,
+            invalidateOnRefresh: true,
           },
         },
       );
@@ -68,6 +69,7 @@ export function SectionBleed({ from, to }: SectionBleedProps) {
           start: "center center",
           end: "bottom top",
           scrub: 1,
+          invalidateOnRefresh: true,
         },
       });
     },

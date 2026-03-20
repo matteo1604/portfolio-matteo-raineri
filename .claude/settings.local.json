@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/vite build:*)"
     ]
-  }
+  },
+  "model": "claude-opus-4-6"
 }

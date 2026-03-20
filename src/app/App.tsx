@@ -15,7 +15,7 @@ import { FloatingElements } from "./components/FloatingElements";
 import { ScrollProvider } from "../contexts/ScrollContext";
 import { ScrollVelocityProvider } from "../systems/ScrollVelocity";
 import { VelocityEffects } from "./components/VelocityEffects";
-import { refreshScrollTriggers } from "./utils/gsap";
+import { refreshScrollTriggers, ScrollTrigger } from "./utils/gsap";
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -30,13 +30,15 @@ export default function App() {
     const loaderTimer = setTimeout(() => setIsLoading(false), 2500);
     // After all sections mount and GSAP pins are created, recalculate
     // ScrollTrigger positions so downstream triggers account for pin spacers
-    const refreshTimer  = setTimeout(() => refreshScrollTriggers(), 4000);
+    const refreshTimer  = setTimeout(() => { ScrollTrigger.sort(); refreshScrollTriggers(); }, 4000);
     const refresh2Timer = setTimeout(() => refreshScrollTriggers(), 5500);
+    const refresh3Timer = setTimeout(() => refreshScrollTriggers(), 7000);
     return () => {
       clearTimeout(heroTimer);
       clearTimeout(loaderTimer);
       clearTimeout(refreshTimer);
       clearTimeout(refresh2Timer);
+      clearTimeout(refresh3Timer);
     };
   }, []);
 

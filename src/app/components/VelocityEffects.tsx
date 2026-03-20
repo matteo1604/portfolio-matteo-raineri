@@ -37,8 +37,8 @@ export function VelocityEffects() {
       if (Math.abs(intensity - lastIntensity) < 0.01) return;
       lastIntensity = intensity;
 
-      if (intensity > 0.3) {
-        const blurPx = ((intensity - 0.3) * 2.8).toFixed(2);
+      if (intensity > 0.4) {
+        const blurPx = ((intensity - 0.4) * 2.5).toFixed(2);
         overlay.style.backdropFilter = `blur(${blurPx}px)`;
       } else {
         overlay.style.backdropFilter = "";
@@ -54,7 +54,7 @@ export function VelocityEffects() {
     <div
       ref={overlayRef}
       className="fixed inset-0 pointer-events-none z-[3]"
-      style={{ transition: "backdrop-filter 0.15s ease-out" }}
+      style={{ transition: "backdrop-filter 0.15s ease-out", willChange: "backdrop-filter", contain: "strict" as const }}
     />
   );
 }

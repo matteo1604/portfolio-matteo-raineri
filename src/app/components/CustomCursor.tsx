@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { gsap } from "../utils/gsap";
+import { gsap, ScrollTrigger } from "../utils/gsap";
 import { useScrollState, SECTION_ACCENTS, type SectionId } from "../../contexts/ScrollContext";
 
 // ── Magnetic Cursor System ────────────────────────────────────────────────────
@@ -78,6 +78,7 @@ export function CustomCursor() {
 
     // Refresh cache on layout changes (e.g. ScrollTrigger pins)
     const refreshInterval = setInterval(cacheMagnetics, 2000);
+    ScrollTrigger.addEventListener("refresh", cacheMagnetics);
 
     // ── Mouse tracking ─────────────────────────────────────────────────────
     const handleMouseMove = (e: MouseEvent) => {
@@ -117,8 +118,12 @@ export function CustomCursor() {
       // ── Magnetic pull ────────────────────────────────────────────────────
       magneticEls.forEach((el) => {
         const rect = el.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
+        if (Math.abs(y - centerY) > 250) {
+          gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "power2.out", overwrite: "auto" });
+          return;
+        }
+        const centerX = rect.left + rect.width / 2;
         const dx = x - centerX;
         const dy = y - centerY;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -154,11 +159,15 @@ export function CustomCursor() {
         {
           scale: 2.5,
           opacity: 0,
-          duration: 0.45,
-          ease: "power2.out",
+          duration: 0.38,
+          ease: "expo.out",
           overwrite: "auto",
           onComplete: () => {
-            gsap.set(ring, { scale: 1, opacity: 1 });
+            gsap.fromTo(ring, { scale: 0 }, {
+              scale: 1,
+              duration: 0.35,
+              ease: "back.out(2)",
+            });
           },
         },
       );
@@ -188,6 +197,7 @@ export function CustomCursor() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mouseover", handleMouseOver);
+      ScrollTrigger.removeEventListener("refresh", cacheMagnetics);
       clearInterval(refreshInterval);
 
       // Reset all magnetic elements on unmount

@@ -2,62 +2,100 @@
 
 import { useRef, useEffect } from "react";
 import { useScrollState, SECTION_ACCENTS, type SectionId } from "../../contexts/ScrollContext";
+import { getVelocitySnapshot } from "../../systems/ScrollVelocity";
 
-// ── Canvas Particle Constellation ─────────────────────────────────────────────
-// Replaces DOM-based FloatingElements with a single canvas rendering 1000 particles.
-// Canvas2D is significantly faster than 7 blur-filtered DOM elements for this use case.
-//
-// Features:
-// - 1000 particles with layered parallax depth
-// - Organic oscillation (desynchronized per-particle phase)
-// - Mouse repulsion field (180px radius)
-// - Constellation connections for larger particles (~300 eligible)
-// - Section-aware color morphing (wave-based, 16 particles/frame over ~60 frames)
-// - Scroll velocity boost via CSS variables (from ScrollVelocity system)
+interface RGB { r: number; g: number; b: number }
 
 interface Particle {
-  baseX: number;
-  baseY: number;
-  x: number;
-  y: number;
-  radius: number;
-  opacity: number;
-  color: string;     // RGB triplet "r, g, b"
+  baseX: number; baseY: number;
+  x: number; y: number;
+  radius: number; opacity: number;
+  fromRGB: RGB; toRGB: RGB;
+  transProgress: number;
+  transDelay: number;
   parallaxRate: number;
   phase: number;
-  isLarge: boolean;  // radius > 1.2 — eligible for connection lines
+  isLarge: boolean;
 }
 
-const PARTICLE_COUNT = 1000;
-const CONNECTION_RADIUS = 100;
-const REPEL_RADIUS = 180;
-const REPEL_FORCE = 28;
+const CONNECTION_RADIUS = 120;
+const CONNECTION_RADIUS_SQ = CONNECTION_RADIUS * CONNECTION_RADIUS;
+const REPEL_RADIUS = 150;
+const TRANS_FRAMES = 90;
 
-// Module-level mouse state — no React overhead
 let mouseX = -500;
 let mouseY = -500;
 let mouseActive = false;
 let mouseTimeout: ReturnType<typeof setTimeout> | null = null;
 
-function createParticles(w: number, h: number, color: string): Particle[] {
+function parseRGB(s: string): RGB {
+  const parts = s.split(",").map(n => parseInt(n.trim(), 10));
+  return { r: parts[0], g: parts[1], b: parts[2] };
+}
+
+function lerpColor(from: RGB, to: RGB, t: number): string {
+  return `${Math.round(from.r + (to.r - from.r) * t)}, ${Math.round(from.g + (to.g - from.g) * t)}, ${Math.round(from.b + (to.b - from.b) * t)}`;
+}
+
+function createParticles(w: number, h: number, rgb: RGB, isMobile: boolean): Particle[] {
   const out: Particle[] = [];
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    const radius = 0.5 + Math.random() * 2;
-    const baseX = w * (0.5 + (Math.random() - 0.5) * 1.4);
-    const baseY = h * (0.3 + Math.random() * 0.5);
-    out.push({
-      baseX,
-      baseY,
-      x: baseX,
-      y: baseY,
-      radius,
-      opacity: 0.02 + Math.random() * 0.08,
-      color,
-      parallaxRate: 0.2 + Math.random() * 0.8,
-      phase: Math.random() * Math.PI * 2,
-      isLarge: radius > 1.2,
-    });
+
+  if (!isMobile) {
+    // Jitter-grid base: 30×20 = 600 cells
+    const cols = 30, rows = 20;
+    const cellW = w / cols;
+    const cellH = h / rows;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const radius = 0.5 + Math.pow(Math.random(), 2.5) * 2;
+        const baseX = (col + Math.random()) * cellW;
+        const baseY = (row + Math.random()) * cellH;
+        out.push({
+          baseX, baseY, x: baseX, y: baseY,
+          radius,
+          opacity: 0.015 + (radius / 2.5) * 0.045,
+          fromRGB: { ...rgb }, toRGB: { ...rgb },
+          transProgress: 1, transDelay: 0,
+          parallaxRate: 0.2 + Math.random() * 0.8,
+          phase: Math.random() * Math.PI * 2,
+          isLarge: radius > 1.2,
+        });
+      }
+    }
+    // Additional 400 purely random particles
+    for (let i = 0; i < 400; i++) {
+      const radius = 0.5 + Math.pow(Math.random(), 2.5) * 2;
+      const baseX = Math.random() * w;
+      const baseY = Math.random() * h;
+      out.push({
+        baseX, baseY, x: baseX, y: baseY,
+        radius,
+        opacity: 0.015 + (radius / 2.5) * 0.045,
+        fromRGB: { ...rgb }, toRGB: { ...rgb },
+        transProgress: 1, transDelay: 0,
+        parallaxRate: 0.2 + Math.random() * 0.8,
+        phase: Math.random() * Math.PI * 2,
+        isLarge: radius > 1.2,
+      });
+    }
+  } else {
+    for (let i = 0; i < 400; i++) {
+      const radius = 0.5 + Math.pow(Math.random(), 2.5) * 2;
+      const baseX = Math.random() * w;
+      const baseY = Math.random() * h;
+      out.push({
+        baseX, baseY, x: baseX, y: baseY,
+        radius,
+        opacity: 0.015 + (radius / 2.5) * 0.045,
+        fromRGB: { ...rgb }, toRGB: { ...rgb },
+        transProgress: 1, transDelay: 0,
+        parallaxRate: 0.2 + Math.random() * 0.8,
+        phase: Math.random() * Math.PI * 2,
+        isLarge: radius > 1.2,
+      });
+    }
   }
+
   return out;
 }
 
@@ -65,26 +103,53 @@ export function FloatingElements() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const largeParticlesRef = useRef<Particle[]>([]);
+  const connPairsRef = useRef<Array<[Particle, Particle]>>([]);
   const rafRef = useRef<number>(0);
-
-  // Color transition state — managed via ref to avoid re-renders
-  const colorTransRef = useRef<{ to: string; frameCount: number }>({
-    to: SECTION_ACCENTS.hero,
-    frameCount: 62, // start "done"
-  });
+  const isMobileRef = useRef(false);
+  const dprRef = useRef(1);
+  const waveFrameRef = useRef<number>(TRANS_FRAMES);
+  const toRGBRef = useRef<RGB>({ r: 59, g: 130, b: 246 });
+  const restMultRef = useRef<number>(1.0);
+  const frameCountRef = useRef<number>(0);
 
   const { currentSection } = useScrollState();
   const prevSectionRef = useRef<SectionId>(currentSection);
 
-  // React to section changes → start staggered color wave
   useEffect(() => {
-    if (currentSection !== prevSectionRef.current) {
-      prevSectionRef.current = currentSection;
-      colorTransRef.current = {
-        to: SECTION_ACCENTS[currentSection],
-        frameCount: 0,
-      };
-    }
+    if (currentSection === prevSectionRef.current) return;
+    prevSectionRef.current = currentSection;
+
+    const newRGB = parseRGB(SECTION_ACCENTS[currentSection]);
+    const particles = particlesRef.current;
+    if (!particles.length) return;
+
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    const withDist = particles.map((p, idx) => ({
+      idx,
+      dist: Math.hypot(p.baseX - cx, p.baseY - cy),
+    }));
+    withDist.sort((a, b) => a.dist - b.dist);
+
+    const maxDelay = 45;
+    withDist.forEach(({ idx }, sortedI) => {
+      const p = particles[idx];
+      const currentColor: RGB = p.transProgress >= 1
+        ? { ...p.toRGB }
+        : {
+            r: Math.round(p.fromRGB.r + (p.toRGB.r - p.fromRGB.r) * p.transProgress),
+            g: Math.round(p.fromRGB.g + (p.toRGB.g - p.fromRGB.g) * p.transProgress),
+            b: Math.round(p.fromRGB.b + (p.toRGB.b - p.fromRGB.b) * p.transProgress),
+          };
+      p.fromRGB = currentColor;
+      p.toRGB = { ...newRGB };
+      p.transProgress = 0;
+      p.transDelay = Math.round((sortedI / particles.length) * maxDelay);
+    });
+
+    waveFrameRef.current = 0;
+    toRGBRef.current = newRGB;
   }, [currentSection]);
 
   useEffect(() => {
@@ -93,64 +158,70 @@ export function FloatingElements() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const isMobile = !window.matchMedia("(min-width: 1024px)").matches;
+    isMobileRef.current = isMobile;
+    const dpr = Math.min(isMobile ? 1.5 : 2, window.devicePixelRatio || 1);
+    dprRef.current = dpr;
 
     const setSize = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
+      canvas.width = w * dprRef.current;
+      canvas.height = h * dprRef.current;
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dprRef.current, 0, 0, dprRef.current, 0, 0);
     };
     setSize();
 
-    // Initialize particles
-    const initialColor = SECTION_ACCENTS[prevSectionRef.current];
-    particlesRef.current = createParticles(window.innerWidth, window.innerHeight, initialColor);
-    largeParticlesRef.current = particlesRef.current.filter((p) => p.isLarge);
+    const initialRGB = parseRGB(SECTION_ACCENTS[prevSectionRef.current]);
+    particlesRef.current = createParticles(window.innerWidth, window.innerHeight, initialRGB, isMobile);
+    largeParticlesRef.current = particlesRef.current.filter(p => p.isLarge);
 
-    // Mouse tracking
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      mouseActive = true;
-      if (mouseTimeout !== null) clearTimeout(mouseTimeout);
-      mouseTimeout = setTimeout(() => {
-        mouseActive = false;
-      }, 3000);
-    };
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    let mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+    if (!isMobile) {
+      mouseMoveHandler = (e: MouseEvent) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        mouseActive = true;
+        if (mouseTimeout !== null) clearTimeout(mouseTimeout);
+        mouseTimeout = setTimeout(() => { mouseActive = false; }, 3000);
+      };
+      window.addEventListener("mousemove", mouseMoveHandler, { passive: true });
+    }
 
-    // Resize — debounced
-    let resizeTimer: ReturnType<typeof setTimeout>;
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const handleResize = () => {
-      clearTimeout(resizeTimer);
+      if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
+        resizeTimer = null;
         setSize();
+        const mobile = !window.matchMedia("(min-width: 1024px)").matches;
+        isMobileRef.current = mobile;
         particlesRef.current = createParticles(
           window.innerWidth,
           window.innerHeight,
-          SECTION_ACCENTS[prevSectionRef.current],
+          toRGBRef.current,
+          mobile,
         );
-        largeParticlesRef.current = particlesRef.current.filter((p) => p.isLarge);
-        colorTransRef.current.frameCount = 62; // reset transition
+        largeParticlesRef.current = particlesRef.current.filter(p => p.isLarge);
+        connPairsRef.current = [];
+        waveFrameRef.current = TRANS_FRAMES;
       }, 200);
     };
     window.addEventListener("resize", handleResize, { passive: true });
 
-    // ── Render loop ────────────────────────────────────────────────────────────
     const render = (time: number) => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-
       ctx.clearRect(0, 0, w, h);
 
       const particles = particlesRef.current;
       const scrollY = window.scrollY;
+      const frameNum = frameCountRef.current++;
+      const mobile = isMobileRef.current;
+      const currentDpr = dprRef.current;
 
-      // Read velocity CSS vars (set by ScrollVelocity RAF — zero overhead)
       const intensity = parseFloat(
         document.documentElement.style.getPropertyValue("--scroll-intensity") || "0",
       );
@@ -159,75 +230,93 @@ export function FloatingElements() {
       );
       const scrollDir = velocityYPx >= 0 ? 1 : -1;
 
-      // Stagger color wave — 16 particles per frame (~62 frames to complete)
-      const ct = colorTransRef.current;
-      if (ct.frameCount < 63) {
-        const startIdx = ct.frameCount * 16;
-        const endIdx = Math.min(startIdx + 16, particles.length);
-        for (let i = startIdx; i < endIdx; i++) {
-          particles[i].color = ct.to;
-          particles[i].isLarge = particles[i].radius > 1.2; // refresh eligibility
-        }
-        ct.frameCount++;
-        // Refresh large particle cache after wave completes
-        if (ct.frameCount === 63) {
-          largeParticlesRef.current = particles.filter((p) => p.isLarge);
-        }
-      }
+      const { isResting } = getVelocitySnapshot();
+      const targetRestMult = isResting ? 0.6 : 1.0;
+      restMultRef.current += (targetRestMult - restMultRef.current) * (isResting ? 0.005 : 0.015);
+      const restMult = restMultRef.current;
 
-      // ── Draw particles ────────────────────────────────────────────────────
+      waveFrameRef.current++;
+
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        const scrollOffset = scrollY * p.parallaxRate * 0.15;
-        const oscX = Math.sin(time * 0.0003 + p.phase) * 12 * p.parallaxRate;
-        const oscY = Math.cos(time * 0.00025 + p.phase * 1.3) * 8 * p.parallaxRate;
+        if (p.transProgress < 1) {
+          const progressFrames = waveFrameRef.current - p.transDelay;
+          if (progressFrames > 0) {
+            p.transProgress = Math.min(1, progressFrames / (TRANS_FRAMES * 0.6));
+          }
+        }
 
-        let repelX = 0;
-        let repelY = 0;
-        if (mouseActive) {
+        const scrollOffset = scrollY * p.parallaxRate * 0.15;
+        const oscX = Math.sin(time * 0.0003 * restMult + p.phase) * 12 * p.parallaxRate;
+        const oscY = Math.cos(time * 0.00025 * restMult + p.phase * 1.3) * 8 * p.parallaxRate;
+
+        if (!mobile && mouseActive) {
           const dx = p.baseX - mouseX;
           const dy = p.baseY - mouseY;
           const distSq = dx * dx + dy * dy;
           if (distSq < REPEL_RADIUS * REPEL_RADIUS) {
             const dist = Math.sqrt(distSq);
-            const force = (1 - dist / REPEL_RADIUS) * REPEL_FORCE;
-            repelX = (dx / dist) * force;
-            repelY = (dy / dist) * force;
+            const force = Math.pow(1 - dist / REPEL_RADIUS, 2) * 35;
+            const targetX = p.baseX + oscX + (dx / dist) * force;
+            const targetY = p.baseY - scrollOffset + oscY + (dy / dist) * force;
+            p.x += (targetX - p.x) * 0.08;
+            p.y += (targetY - p.y) * 0.08;
+          } else {
+            p.x += (p.baseX + oscX - p.x) * 0.015;
+            p.y += (p.baseY - scrollOffset + oscY - p.y) * 0.015;
           }
+        } else {
+          p.x += (p.baseX + oscX - p.x) * 0.015;
+          p.y += (p.baseY - scrollOffset + oscY - p.y) * 0.015;
         }
 
         const velocityBoost = intensity * p.parallaxRate * 4;
-        const finalX = p.baseX + oscX + repelX;
-        const rawY = p.baseY - scrollOffset + oscY + repelY + velocityBoost * scrollDir;
+        const drawY = ((( p.y + velocityBoost * scrollDir) % (h + 100)) + (h + 100)) % (h + 100) - 50;
 
-        p.x = finalX;
-        // Vertical wrap: particles off-screen above reappear below (+100px buffer)
-        p.y = ((rawY % (h + 100)) + (h + 100)) % (h + 100) - 50;
+        const colorStr = p.transProgress >= 1
+          ? `${p.toRGB.r}, ${p.toRGB.g}, ${p.toRGB.b}`
+          : lerpColor(p.fromRGB, p.toRGB, p.transProgress);
 
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${p.color}, ${p.opacity})`;
+        ctx.arc(p.x, drawY, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${colorStr}, ${p.opacity})`;
         ctx.fill();
       }
 
-      // ── Draw constellation connections (large particles only, O(n²/~4)) ───
-      const large = largeParticlesRef.current;
-      const connRadSq = CONNECTION_RADIUS * CONNECTION_RADIUS;
+      if (!mobile) {
+        const large = largeParticlesRef.current;
 
-      for (let i = 0; i < large.length; i++) {
-        for (let j = i + 1; j < large.length; j++) {
-          const dx = large[i].x - large[j].x;
-          const dy = large[i].y - large[j].y;
-          const distSq = dx * dx + dy * dy;
-          if (distSq < connRadSq) {
-            const dist = Math.sqrt(distSq);
-            const lineOpacity = (1 - dist / CONNECTION_RADIUS) * 0.035;
+        if (frameNum % 3 === 0) {
+          const pairs: Array<[Particle, Particle]> = [];
+          for (let i = 0; i < large.length; i++) {
+            for (let j = i + 1; j < large.length; j++) {
+              const dx = large[i].x - large[j].x;
+              const dy = large[i].y - large[j].y;
+              if (dx * dx + dy * dy < CONNECTION_RADIUS_SQ) {
+                pairs.push([large[i], large[j]]);
+              }
+            }
+          }
+          connPairsRef.current = pairs;
+        }
+
+        const pairs = connPairsRef.current;
+        ctx.lineWidth = 0.4 * currentDpr;
+        for (let k = 0; k < pairs.length; k++) {
+          const [a, b] = pairs[k];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECTION_RADIUS) {
+            const lineOpacity = (1 - dist / CONNECTION_RADIUS) * 0.018;
+            const colorStr = a.transProgress >= 1
+              ? `${a.toRGB.r}, ${a.toRGB.g}, ${a.toRGB.b}`
+              : lerpColor(a.fromRGB, a.toRGB, a.transProgress);
             ctx.beginPath();
-            ctx.moveTo(large[i].x, large[i].y); // fixed: was large[j].y (bug in spec)
-            ctx.lineTo(large[j].x, large[j].y);
-            ctx.strokeStyle = `rgba(${large[i].color}, ${lineOpacity})`;
-            ctx.lineWidth = 0.5;
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = `rgba(${colorStr}, ${lineOpacity})`;
             ctx.stroke();
           }
         }
@@ -240,9 +329,9 @@ export function FloatingElements() {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("mousemove", handleMouseMove);
+      if (mouseMoveHandler) window.removeEventListener("mousemove", mouseMoveHandler);
       window.removeEventListener("resize", handleResize);
-      clearTimeout(resizeTimer);
+      if (resizeTimer) clearTimeout(resizeTimer);
     };
   }, []);
 
