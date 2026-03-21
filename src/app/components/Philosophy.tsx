@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
+import { gsap, useGSAP } from "../utils/gsap";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Philosophy — manifesto layout
@@ -28,8 +28,11 @@ import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 // All element refs exposed for GSAP scroll timeline.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MANIFESTO =
-  "Fast enough to disappear. Precise enough to be trusted. The rest is decoration.";
+const MANIFESTO_FRAGMENTS = [
+  "Fast enough to disappear.",
+  "Precise enough to be trusted.",
+  "The rest is decoration.",
+] as const;
 
 const PRINCIPLES = [
   {
@@ -246,12 +249,7 @@ function PrincipleRow({
         animate={{
           opacity: isDimmed ? 0.18 : isActive ? 0.74 : 0.54,
           y: isActive ? -2 : hasActiveRow ? 6 : 0,
-          filter: isDimmed ? "blur(1px)" : "blur(0px)",
-          clipPath: isActive
-            ? "inset(0% 0% 0% 0%)"
-            : hasActiveRow
-              ? "inset(10% 0% 0% 0%)"
-              : "inset(0% 0% 0% 0%)",
+          filter: "blur(0px)",
         }}
         transition={{ duration: 0.6, ease: EXPO }}
         style={{
@@ -272,7 +270,7 @@ function PrincipleRow({
 export function Philosophy() {
   // Section ref — useInView trigger + future GSAP context scope
   const sectionRef = useRef<HTMLElement>(null);
-  const isInView   = useInView(sectionRef, { once: true, margin: "-120px" });
+  const isInView   = useInView(sectionRef, { once: true, margin: "-20%" });
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   // Per-element refs — GSAP scroll animation targets
@@ -313,13 +311,11 @@ export function Philosophy() {
         scrollTrigger: {
           trigger: section,
           start: "top top",
-          end: "+=80%",
+          end: "+=52%",
           pin: true,
           scrub: 1.0,
           anticipatePin: 1,
           refreshPriority: -1,
-          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
-          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
         },
       });
 
@@ -332,7 +328,7 @@ export function Philosophy() {
 
       // 0.25→0.85: rows slam in with stagger
       rows.forEach((row, i) => {
-        const startAt = 0.25 + i * 0.20;
+        const startAt = 0.25 + i * 0.15;
         tl.to(row, { opacity: 1, y: 0, ease: "power4.out", duration: 0.18 }, startAt);
         // Separator below this row draws simultaneously
         if (seps[i + 1]) {
@@ -394,11 +390,12 @@ export function Philosophy() {
       }
 
       // ── Hero → Philosophy cinematic handoff ────────────────────────────
-      // Ghost "02" begins its entrance while Hero is still partially visible,
-      // creating an overlap that makes the two sections feel connected.
-      const heroSection = document.getElementById("hero");
-      if (heroSection && ghostNumRef.current) {
-        // Early ghost reveal — starts when Hero is ~60% scrolled out
+      // Ghost "02" scales in as Philosophy approaches viewport.
+      // Uses Philosophy's own section as trigger (pin-agnostic) instead of
+      // querying the Hero element, which is pinned and causes unreliable
+      // trigger positions. Opacity-only transition avoids filter blur
+      // repaints during scroll scrub.
+      if (ghostNumRef.current) {
         gsap.fromTo(
           ghostNumRef.current,
           { scale: 1.08, filter: "blur(8px)" },
@@ -407,51 +404,22 @@ export function Philosophy() {
             filter: "blur(0px)",
             ease: "none",
             scrollTrigger: {
-              trigger: heroSection,
-              start: "60% top",
-              end: "bottom top",
+              trigger: section,
+              start: "top 110%",
+              end: "top 40%",
               scrub: 1.2,
             },
           },
         );
       }
 
-      // Principle rows get a subtle upward drift on entrance from scroll
-      rowRefs.forEach((rowRef, i) => {
-        if (rowRef.current) {
-          gsap.fromTo(
-            rowRef.current,
-            { y: 30 + i * 10 },
-            {
-              y: 0,
-              ease: "none",
-              scrollTrigger: {
-                trigger: rowRef.current,
-                start: "top 90%",
-                end: "top 60%",
-                scrub: 0.8,
-              },
-            },
-          );
-        }
-      });
+      // Row scroll drift removed — the pinned entrance timeline already
+      // animates rows from y:80→0. A second fromTo on the same y property
+      // caused competing tweens and visible jank.
 
-      // ── Manifesto activates when "Reduction" (row 1) enters viewport center ──
-      // The manifesto brightens and shifts to blue-white as the middle principle
-      // enters focus — connecting the framing sentence to the principle of reduction.
-      if (manifestoRef.current && rowRefs[1].current) {
-        gsap.to(manifestoRef.current, {
-          color: "rgba(186,230,253,0.72)",
-          letterSpacing: "-0.005em",
-          ease: "none",
-          scrollTrigger: {
-            trigger: rowRefs[1].current,
-            start: "top center",
-            end: "bottom center",
-            scrub: 1.2,
-          },
-        });
-      }
+      // Manifesto letterSpacing scrub removed — animating letter-spacing
+      // triggers text relayout every frame during scroll. The manifesto
+      // fragments now respond to hover via inline spans instead.
     },
     [],
     sectionRef,
@@ -467,6 +435,7 @@ export function Philosophy() {
     <section
       ref={sectionRef}
       className="relative min-h-screen flex flex-col justify-center overflow-hidden bg-[#060c1a] px-6 md:px-12 lg:px-20 py-[clamp(5rem,12vw,10rem)]"
+      style={{ willChange: "transform, opacity" }}
     >
 
       {/* ── Ambient gradient ─────────────────────────────────────────────────
@@ -576,7 +545,24 @@ export function Philosophy() {
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.9, delay: 0.18, ease: EXPO }}
         >
-          {MANIFESTO}
+          {MANIFESTO_FRAGMENTS.map((fragment, i) => (
+            <span
+              key={i}
+              style={{
+                opacity:
+                  activeIndex === null ? 0.60
+                  : activeIndex === i  ? 1.0
+                  :                      0.22,
+                color:
+                  activeIndex === null ? "rgba(255,255,255,0.60)"
+                  : activeIndex === i  ? "rgba(186,230,253,0.90)"
+                  :                      "rgba(255,255,255,0.22)",
+                transition: "opacity 0.55s cubic-bezier(0.16,1,0.3,1), color 0.55s cubic-bezier(0.16,1,0.3,1)",
+              }}
+            >
+              {fragment}{i < MANIFESTO_FRAGMENTS.length - 1 ? " " : ""}
+            </span>
+          ))}
         </motion.p>
 
         {/* Top separator */}
