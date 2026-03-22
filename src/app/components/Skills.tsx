@@ -6637,7 +6637,7 @@ export function Skills() {
         scrollTrigger: {
           trigger: section,
           start: "top top",
-          end: "+=60%",
+          end: "+=30%",
           pin: true,
           scrub: 1.0,
           anticipatePin: 1,
@@ -6647,14 +6647,14 @@ export function Skills() {
         },
       });
 
-      // 0.20→0.45: Shell materializes from blur
+      // 0.05→0.85: Shell materializes from blur (fills most of the pin)
       tl.to(shell, {
         scale: 1,
         opacity: 1,
         filter: "blur(0px)",
         ease: "power4.out",
-        duration: 0.25,
-      }, 0.20);
+        duration: 0.80,
+      }, 0.05);
     },
     [],
     sectionRef,

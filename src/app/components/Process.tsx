@@ -501,6 +501,7 @@ export function Process() {
   // ── Hover-gated wheel control refs ──
   const progressRef = useRef(0);
   const isHoveringRef = useRef(false);
+  const pinActiveRef = useRef(false);
 
   const isInView = useInView(sectionRef, { once: true, margin: "-120px" });
   const [hoveredPhaseId, setHoveredPhaseId] = useState<ExecutionPhase["id"] | null>(null);
@@ -583,8 +584,10 @@ export function Process() {
           scrub: 1.0,
           anticipatePin: 1,
           refreshPriority: -1,
-          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
-          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onEnter:     () => { pinActiveRef.current = true; },
+          onLeave:     () => { pinActiveRef.current = false; setTimeout(() => ScrollTrigger.refresh(), 100); },
+          onEnterBack: () => { pinActiveRef.current = true; setTimeout(() => ScrollTrigger.refresh(), 100); },
+          onLeaveBack: () => { pinActiveRef.current = false; },
         },
       });
 
@@ -677,15 +680,46 @@ export function Process() {
     const onMouseEnter = () => { isHoveringRef.current = true; };
     const onMouseLeave = () => { isHoveringRef.current = false; };
 
+    // ── Smooth release: when progress hits a boundary, gradually stop
+    // intercepting wheel events over ~300ms instead of a hard cut.
+    let releaseStart = 0;
+    const RELEASE_DURATION = 300;
+
     const onWheel = (e: WheelEvent) => {
       if (!isHoveringRef.current) return;
       if (scrollLockRef.current) return;
+      // While the GSAP pin is scrubbing, let wheel events pass through
+      // so the browser scroll advances and GSAP can drive the entrance timeline
+      if (pinActiveRef.current) return;
 
       const current = progressRef.current;
-      // At boundaries, let the page scroll naturally
-      if (current <= 0 && e.deltaY < 0) return;
-      if (current >= 1 && e.deltaY > 0) return;
+      const atBoundary =
+        (current <= 0 && e.deltaY < 0) ||
+        (current >= 1 && e.deltaY > 0);
 
+      if (atBoundary) {
+        const now = performance.now();
+        // First boundary wheel event starts the release timer
+        if (releaseStart === 0) releaseStart = now;
+
+        const elapsed = now - releaseStart;
+        if (elapsed >= RELEASE_DURATION) {
+          // Release complete — let browser scroll fully
+          releaseStart = 0;
+          return;
+        }
+
+        // During release: partially intercept (dampen the scroll)
+        // At t=0 intercept 100%, at t=RELEASE_DURATION intercept 0%
+        const interceptRatio = 1 - elapsed / RELEASE_DURATION;
+        if (interceptRatio > 0.05) {
+          e.preventDefault();
+        }
+        return;
+      }
+
+      // Not at boundary — reset release timer and intercept fully
+      releaseStart = 0;
       e.preventDefault();
 
       // Clamp deltaY to prevent momentum overshoot

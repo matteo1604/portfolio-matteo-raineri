@@ -16,7 +16,7 @@ const socials = [
 
 export function Contact() {
   const sectionRef = useRef<HTMLElement>(null);
-  const isInView = useInView(sectionRef, { once: true, margin: "-120px" });
+  const isInView = useInView(sectionRef, { once: true, margin: "-35%" });
 
   return (
     <section

@@ -33,7 +33,7 @@ interface TransitionConfig {
 type PairKey = `${SectionId}-${SectionId}`;
 
 const TRANSITION_CONFIG: Record<PairKey, TransitionConfig> = {
-  "hero-philosophy":     { height: 128, treatment: "gradient" },
+  "hero-philosophy":     { height: 80,  treatment: "gradient" },
   "philosophy-skills":   { height: 160, treatment: "grid"     },
   "skills-projects":     { height: 192, treatment: "particles" },
   "projects-process":    { height: 160, treatment: "gradient" },

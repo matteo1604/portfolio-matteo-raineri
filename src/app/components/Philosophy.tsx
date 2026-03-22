@@ -310,7 +310,7 @@ export function Philosophy() {
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: section,
-          start: "top top",
+          start: "top 15%",
           end: "+=52%",
           pin: true,
           scrub: 1.0,

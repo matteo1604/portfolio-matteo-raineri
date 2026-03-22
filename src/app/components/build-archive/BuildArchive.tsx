@@ -134,7 +134,8 @@ export function BuildArchive() {
           data-build-shell=""
           className="relative -mt-px overflow-hidden rounded-[34px] border border-white/10 backdrop-blur-2xl"
           initial={{ opacity: 0, y: 28, filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.9, ease: EXPO }}
           style={{
             background:
