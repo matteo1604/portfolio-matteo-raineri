@@ -43,8 +43,25 @@ export function useGSAP(
 }
 
 // ── ScrollTrigger refresh helper ───────────────────────────────────────────────
-// Call after dynamic content loads or layout shifts
+// Debounced: multiple rapid calls collapse into a single refresh after 200ms.
+// Prevents layout recalculation storms when multiple sections fire refresh
+// simultaneously (e.g. onLeave/onEnterBack callbacks during fast scroll).
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function refreshScrollTriggers() {
+  if (refreshTimer !== null) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    ScrollTrigger.refresh();
+  }, 200);
+}
+
+// Force immediate refresh — use sparingly (e.g. initial boot sort + refresh)
+export function refreshScrollTriggersNow() {
+  if (refreshTimer !== null) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
   ScrollTrigger.refresh();
 }
 

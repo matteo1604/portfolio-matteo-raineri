@@ -1,8 +1,6 @@
-"use client";
-
 import { AnimatePresence, motion, useInView } from "motion/react";
-import { useLayoutEffect, useRef, useState } from "react";
-import { gsap, useGSAP } from "../utils/gsap";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { gsap, useGSAP, EXPO_CSS } from "../utils/gsap";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Philosophy — manifesto layout
@@ -60,7 +58,7 @@ const SEPARATOR_DELAYS = [0.28, 0.51, 0.77] as const;
 const ROW_DELAYS       = [0.35, 0.58, 0.84] as const;
 
 // Shared expo easing — matches Hero
-const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const EXPO = EXPO_CSS;
 
 // ── PrincipleRow ──────────────────────────────────────────────────────────────
 // Extracted so hover state is self-contained and refs are cleanly typed.
@@ -272,6 +270,13 @@ export function Philosophy() {
   const sectionRef = useRef<HTMLElement>(null);
   const isInView   = useInView(sectionRef, { once: true, margin: "-20%" });
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  // On desktop, GSAP pin timeline owns eyebrow/manifesto/separator entrance.
+  // motion/react animations are mobile-only to avoid dual-system collision.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    setIsDesktop(window.matchMedia("(min-width: 1024px)").matches);
+  }, []);
 
   // Per-element refs — GSAP scroll animation targets
   const eyebrowRef   = useRef<HTMLDivElement>(null);
@@ -509,14 +514,14 @@ export function Philosophy() {
       {/* ── Main content ─────────────────────────────────────────────────────── */}
       <div className="relative z-10 mx-auto w-full max-w-[1600px] [--ph-gap:2.5rem] [--ph-index-col:4.5rem] xl:[--ph-gap:3rem] xl:[--ph-index-col:5rem]">
 
-        {/* Eyebrow */}
+        {/* Eyebrow — desktop: GSAP pin timeline owns entrance; mobile: motion/react */}
         <motion.div
           ref={eyebrowRef}
           data-philosophy="eyebrow"
           className="mb-10 flex items-center gap-3"
-          initial={{ opacity: 0, y: 10 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, delay: 0.1, ease: EXPO }}
+          initial={isDesktop ? false : { opacity: 0, y: 10 }}
+          animate={isDesktop ? undefined : isInView ? { opacity: 1, y: 0 } : {}}
+          transition={isDesktop ? undefined : { duration: 0.7, delay: 0.1, ease: EXPO }}
         >
           <div className="w-6 h-px bg-blue-400/60" />
           <span
@@ -541,9 +546,9 @@ export function Philosophy() {
             color:         "rgba(255,255,255,0.60)",
             letterSpacing: "0.01em",
           }}
-          initial={{ opacity: 0, y: 14 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.9, delay: 0.18, ease: EXPO }}
+          initial={isDesktop ? false : { opacity: 0, y: 14 }}
+          animate={isDesktop ? undefined : isInView ? { opacity: 1, y: 0 } : {}}
+          transition={isDesktop ? undefined : { duration: 0.9, delay: 0.18, ease: EXPO }}
         >
           {MANIFESTO_FRAGMENTS.map((fragment, i) => (
             <span
@@ -565,15 +570,15 @@ export function Philosophy() {
           ))}
         </motion.p>
 
-        {/* Top separator */}
+        {/* Top separator — desktop: GSAP pin; mobile: motion/react */}
         <motion.div
           ref={separatorRefs[0]}
           aria-hidden="true"
           data-philosophy="sep-0"
           className="h-px origin-left"
-          initial={{ scaleX: 0 }}
-          animate={isInView ? { scaleX: 1 } : {}}
-          transition={{ duration: 1.1, delay: 0.22, ease: EXPO }}
+          initial={isDesktop ? false : { scaleX: 0 }}
+          animate={isDesktop ? undefined : isInView ? { scaleX: 1 } : {}}
+          transition={isDesktop ? undefined : { duration: 1.1, delay: 0.22, ease: EXPO }}
           style={{
             background: isSeparatorActive(0)
               ? "linear-gradient(90deg, rgba(186,230,253,0.42) 0%, rgba(96,165,250,0.18) 40%, transparent 100%)"
@@ -611,9 +616,9 @@ export function Philosophy() {
               aria-hidden="true"
               data-philosophy={`sep-${i + 1}`}
               className="h-px origin-left"
-              initial={{ scaleX: 0 }}
-              animate={isInView ? { scaleX: 1 } : {}}
-              transition={{
+              initial={isDesktop ? false : { scaleX: 0 }}
+              animate={isDesktop ? undefined : isInView ? { scaleX: 1 } : {}}
+              transition={isDesktop ? undefined : {
                 duration: 1.1,
                 delay:    SEPARATOR_DELAYS[i],
                 ease:     EXPO,

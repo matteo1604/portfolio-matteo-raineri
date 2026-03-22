@@ -1,5 +1,3 @@
-"use client";
-
 import { useSyncExternalStore, useEffect, type ReactNode } from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────

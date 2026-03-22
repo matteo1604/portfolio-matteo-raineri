@@ -1,10 +1,9 @@
-"use client";
-
 import { motion, useInView } from "motion/react";
 import { useRef } from "react";
 import { ArrowRight, Github, Linkedin, Twitter } from "lucide-react";
+import { EXPO_CSS } from "../utils/gsap";
 
-const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const EXPO = EXPO_CSS;
 const DISPLAY_FONT = "'Syne', sans-serif";
 const MONO_FONT = "'DM Mono', monospace";
 

@@ -1,7 +1,5 @@
-"use client";
-
 import { AnimatePresence, motion, useInView } from "motion/react";
-import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
+import { gsap, useGSAP, ScrollTrigger, refreshScrollTriggers, EXPO_CSS } from "../utils/gsap";
 import {
   useCallback,
   useEffect,
@@ -89,7 +87,7 @@ interface SystemMemory {
   activationHistory: string[];
 }
 
-const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const EXPO = EXPO_CSS;
 const MANIFESTO =
   "Activate a subsystem. Feel the response before the explanation arrives.";
 const MONO: CSSProperties = { fontFamily: "'DM Mono', monospace" };
@@ -6642,8 +6640,8 @@ export function Skills() {
           scrub: 1.0,
           anticipatePin: 1,
           refreshPriority: -1,
-          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
-          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onLeave:     () => refreshScrollTriggers(),
+          onEnterBack: () => refreshScrollTriggers(),
         },
       });
 

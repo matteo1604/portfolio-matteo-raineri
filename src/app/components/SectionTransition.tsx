@@ -1,24 +1,11 @@
-"use client";
-
 import { useRef } from "react";
 import { gsap, useGSAP } from "../utils/gsap";
-
-type SectionId = "hero" | "philosophy" | "skills" | "projects" | "process" | "contact";
+import { SECTION_ACCENTS, type SectionId } from "../../contexts/ScrollContext";
 
 interface SectionTransitionProps {
   from: SectionId;
   to: SectionId;
 }
-
-// ── Per-section accent colors ─────────────────────────────────────────────────
-const SECTION_ACCENTS: Record<SectionId, string> = {
-  hero:       "59, 130, 246",
-  philosophy: "147, 197, 253",
-  skills:     "99, 102, 241",
-  projects:   "34, 197, 94",
-  process:    "14, 165, 233",
-  contact:    "147, 197, 253",
-};
 
 // ── Per-pair config ───────────────────────────────────────────────────────────
 // height: controls breathing room between sections

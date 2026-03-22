@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef } from "react";
 import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
 import { useScrollState, SECTION_ACCENTS, SECTION_IDS } from "../../contexts/ScrollContext";

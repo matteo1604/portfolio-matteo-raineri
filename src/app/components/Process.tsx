@@ -1,8 +1,6 @@
-"use client";
-
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
+import { gsap, useGSAP, ScrollTrigger, refreshScrollTriggers, EXPO_CSS } from "../utils/gsap";
 
 type ExecutionMetric = {
   label: string;
@@ -59,7 +57,7 @@ interface ExecutionNodeProps {
   onHoverEnd: () => void;
 }
 
-const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const EXPO = EXPO_CSS;
 const DISPLAY_FONT = "'Syne', sans-serif";
 const MONO_FONT = "'DM Mono', monospace";
 const RAIL_NODE_POSITIONS = ["25%", "50%", "75%"] as const;
@@ -585,8 +583,8 @@ export function Process() {
           anticipatePin: 1,
           refreshPriority: -1,
           onEnter:     () => { pinActiveRef.current = true; },
-          onLeave:     () => { pinActiveRef.current = false; setTimeout(() => ScrollTrigger.refresh(), 100); },
-          onEnterBack: () => { pinActiveRef.current = true; setTimeout(() => ScrollTrigger.refresh(), 100); },
+          onLeave:     () => { pinActiveRef.current = false; refreshScrollTriggers(); },
+          onEnterBack: () => { pinActiveRef.current = true; refreshScrollTriggers(); },
           onLeaveBack: () => { pinActiveRef.current = false; },
         },
       });

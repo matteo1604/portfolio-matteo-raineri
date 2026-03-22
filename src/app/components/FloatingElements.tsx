@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useEffect } from "react";
 import { useScrollState, SECTION_ACCENTS, type SectionId } from "../../contexts/ScrollContext";
 import { getVelocitySnapshot } from "../../systems/ScrollVelocity";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useEffect, useState } from "react";
 import { subscribeVelocity, getVelocitySnapshot } from "../../systems/ScrollVelocity";
 

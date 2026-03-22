@@ -1,22 +1,21 @@
-"use client";
-
 import { motion, useMotionValue, useSpring } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { gsap, useGSAP, ScrollTrigger } from "../utils/gsap";
+import { gsap, useGSAP, ScrollTrigger, refreshScrollTriggers } from "../utils/gsap";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE (Next.js): move Syne + DM Mono to app/layout.tsx via `next/font/google`
 // for optimal LCP. The useEffect injection below is a self-contained fallback.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Animated counter ────────────────────────────────────────────────────────
-function useCounter(
+// ── Animated counter (ref-based, no React re-renders) ───────────────────────
+// Writes directly to DOM via textContent to avoid setState-in-RAF overhead.
+function useCounterRef(
   target: number,
   duration: number = 2200,
   startDelay: number = 1450,
-): number {
-  const [count, setCount] = useState<number>(0);
+): React.RefObject<HTMLSpanElement | null> {
+  const ref = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     let frame: number | undefined;
@@ -24,18 +23,16 @@ function useCounter(
       let start: number | null = null;
 
       const step = (timestamp: number): void => {
-        if (start === null) {
-          start = timestamp;
-        }
+        if (start === null) start = timestamp;
 
         const progress = Math.min((timestamp - start) / duration, 1);
         const eased = 1 - Math.pow(1 - progress, 4);
-        setCount(Math.floor(eased * target));
+        const value = progress < 1 ? Math.floor(eased * target) : target;
+
+        if (ref.current) ref.current.textContent = `${value}+`;
 
         if (progress < 1) {
           frame = requestAnimationFrame(step);
-        } else {
-          setCount(target);
         }
       };
 
@@ -44,13 +41,11 @@ function useCounter(
 
     return () => {
       clearTimeout(timeout);
-      if (frame !== undefined) {
-        cancelAnimationFrame(frame);
-      }
+      if (frame !== undefined) cancelAnimationFrame(frame);
     };
   }, [target, duration, startDelay]);
 
-  return count;
+  return ref;
 }
 
 // ── Injected styles ─────────────────────────────────────────────────────────
@@ -538,8 +533,8 @@ export function Hero() {
           pin: true,
           scrub: 1.2,
           anticipatePin: 1,
-          onLeave:     () => setTimeout(() => ScrollTrigger.refresh(), 100),
-          onEnterBack: () => setTimeout(() => ScrollTrigger.refresh(), 100),
+          onLeave:     () => refreshScrollTriggers(),
+          onEnterBack: () => refreshScrollTriggers(),
           onUpdate: (self) => {
             // When timeline scrubs back to the dead zone (progress < 0.05),
             // force-restore all elements to their entrance-complete state
@@ -664,7 +659,7 @@ export function Hero() {
       }
 
       // Force refresh so downstream sections recalculate with pin spacer
-      setTimeout(() => ScrollTrigger.refresh(), 200);
+      refreshScrollTriggers();
     },
     [entranceComplete],
     sectionRef,
@@ -692,10 +687,10 @@ export function Hero() {
   }, [raineriRevealed, prefersReducedMotion]);
 
   // ── Counters ────────────────────────────────────────────────────────────
-  const years = useCounter(5);
-  const projects = useCounter(40);
-  const clients = useCounter(12);
-  const counterValues = [years, projects, clients];
+  const yearsRef = useCounterRef(5);
+  const projectsRef = useCounterRef(40);
+  const clientsRef = useCounterRef(12);
+  const counterRefs = [yearsRef, projectsRef, clientsRef];
 
   const resetSceneParallax = () => {
     titleOffsetX.set(0);
@@ -1073,10 +1068,11 @@ export function Hero() {
                   className="min-w-0 border-l border-blue-300/16 pl-4 lg:max-w-[14rem] lg:pl-5"
                 >
                   <span
+                    ref={counterRefs[index]}
                     className="block text-[clamp(2rem,3vw,3.35rem)] font-bold leading-none text-white/92 tabular-nums"
                     style={{ fontFamily: "'Syne', sans-serif" }}
                   >
-                    {counterValues[index]}+
+                    0+
                   </span>
                   <span
                     className="mt-2 flex flex-col text-[9px] uppercase leading-snug tracking-[0.28em] text-blue-200/46"

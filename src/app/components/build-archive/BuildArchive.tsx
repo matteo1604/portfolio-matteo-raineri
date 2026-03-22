@@ -1,8 +1,6 @@
-"use client";
-
 import { motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
-import { gsap, useGSAP } from "../../utils/gsap";
+import { gsap, useGSAP, EXPO_CSS } from "../../utils/gsap";
 
 import { ArchiveFooter } from "./ArchiveFooter";
 import { ArchiveHeader } from "./ArchiveHeader";
@@ -11,7 +9,7 @@ import { ArchiveRail } from "./ArchiveRail";
 import { ArchiveTopBar } from "./ArchiveTopBar";
 import { BUILD_ARCHIVE_MODULES } from "./archive.data";
 
-const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const EXPO = EXPO_CSS;
 
 export function BuildArchive() {
   const sectionRef = useRef<HTMLElement | null>(null);

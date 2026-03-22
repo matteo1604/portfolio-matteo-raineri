@@ -15,7 +15,7 @@ import { FloatingElements } from "./components/FloatingElements";
 import { ScrollProvider } from "../contexts/ScrollContext";
 import { ScrollVelocityProvider } from "../systems/ScrollVelocity";
 import { VelocityEffects } from "./components/VelocityEffects";
-import { refreshScrollTriggers, ScrollTrigger } from "./utils/gsap";
+import { refreshScrollTriggersNow, ScrollTrigger } from "./utils/gsap";
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -29,18 +29,16 @@ export default function App() {
     // Loader exit starts here (0.9s exit transition in PageLoader)
     const loaderTimer = setTimeout(() => setIsLoading(false), 2500);
     // After all sections mount and GSAP pins are created, recalculate
-    // ScrollTrigger positions so downstream triggers account for pin spacers
-    // Hero entrance ~3.25s after mount at 2150ms ≈ 5400ms, then pin creates.
-    // First refresh after pin exists, second as safety net.
-    const refreshTimer  = setTimeout(() => { ScrollTrigger.sort(); refreshScrollTriggers(); }, 6000);
-    const refresh2Timer = setTimeout(() => refreshScrollTriggers(), 8000);
-    const refresh3Timer = setTimeout(() => refreshScrollTriggers(), 10000);
+    // ScrollTrigger positions so downstream triggers account for pin spacers.
+    // Single sort + immediate refresh after Hero entrance completes (~6s).
+    // Second refresh as safety net for late-loading content.
+    const refreshTimer  = setTimeout(() => { ScrollTrigger.sort(); refreshScrollTriggersNow(); }, 6000);
+    const refresh2Timer = setTimeout(() => refreshScrollTriggersNow(), 9000);
     return () => {
       clearTimeout(heroTimer);
       clearTimeout(loaderTimer);
       clearTimeout(refreshTimer);
       clearTimeout(refresh2Timer);
-      clearTimeout(refresh3Timer);
     };
   }, []);
 
